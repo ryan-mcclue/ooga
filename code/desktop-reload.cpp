@@ -36,10 +36,9 @@ code_update(State *state)
   if (!state->is_initialised)
   {
     state->is_initialised = true;
+    state->player_pos = {0, 0};
+    state->camera.zoom = 1.f;
   }
-
-  BeginDrawing();
-  ClearBackground(RAYWHITE);
 
   f32 dt = GetFrameTime();
   u32 rw = GetRenderWidth();
@@ -51,30 +50,26 @@ code_update(State *state)
     else MaximizeWindow();
   }
 
-  // TODO: more performant to auto-generate enum into array, instead of hashmap lookup every frame
+  Vector2 player_dp = ZERO_STRUCT;
+  f32 player_v = 150.f;
+  if (IsKeyDown(KEY_UP)) player_dp.y -= 1;
+  if (IsKeyDown(KEY_DOWN)) player_dp.y += 1;
+  if (IsKeyDown(KEY_LEFT)) player_dp.x -= 1;
+  if (IsKeyDown(KEY_RIGHT)) player_dp.x += 1;
+  if (IsKeyDown(KEY_LEFT_SHIFT)) player_v += 200.f;
+  player_dp = Vector2Normalize(player_dp);
+  state->player_pos += (player_dp * player_v * dt);
 
-  //Camera2D cam = ZERO_STRUCT;
-  //cam.zoom = 1.f;
+  BeginDrawing();
+  ClearBackground(RAYWHITE);
+  BeginMode2D(state->camera);
 
-  Vector2 pos = {50.f, 50.f};
-  f32 font_size = 64.f;
-  DrawTextEx(assets_get_font(str8_lit("assets/Alegreya-Regular.ttf")),
-             "hi there", pos, font_size, 0.f, BLUE);
-  //DrawTextEx(assets_get_font(str8_lit("assets/Alegreya-BoldItalic.ttf")),
-  //           "hello there", pos, font_size, 0.f, ORANGE);
+  // NOTE(Ryan): Rendering at 1920; Sprites done on 240
+  f32 texture_scale = 8.0f;
+  DrawTextureEx(assets_get_texture(str8_lit("assets/portal.png")), 
+                state->player_pos, 0, texture_scale, WHITE);
 
-  //for (u32 i = 0; i < 1000; i += 1)
-  //{
-  //  u32 x = (i % 16), y = (i / 16);
-  //  x *= tile_width;
-  //  y *= tile_height;
-  //  y -= (full_tile_height - tile_height);
-  //  DrawTexture(assets_get_texture(str8_lit("assets/Male_3_Idle0.png")), 0, 0, WHITE); 
-  //}
-  
-  DrawTexture(assets_get_texture(str8_lit("assets/Male_3_Idle0.png")), 0, 0, WHITE); 
-  //DrawTexture(assets_get_texture(str8_lit("assets/Male_3_Run8.png")), 0, 0, WHITE); 
-
+  EndMode2D();
   EndDrawing();
   }
 }

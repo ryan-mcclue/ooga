@@ -28,6 +28,33 @@ INTERNAL bool operator==(Vector2 a, Vector2 b) { return f32_eq(a.x, b.x) && f32_
 INTERNAL bool operator!=(Vector2 a, Vector2 b) { return !(a == b); }
 #endif
 
+INTERNAL void
+draw_debug_text(String8 text)
+{
+  f32 at_x = 50.f;
+  LOCAL_PERSIST f32 at_y = 50.f;
+  char text[64] = ZERO_STRUCT;
+  str8_to_cstr(s, text, sizeof(text));
+  DrawText(text, at_x, at_y, 48, RED);
+  at_y += 50.f;
+}
+#define DBG_U32(var) \
+  draw_debug_text(str8_fmt(g_state->frame_arena, STRINGIFY(var) " = %" PRIu32, var))
+#define DBG_S32(var) \
+  draw_debug_text(str8_fmt(g_state->frame_arena, STRINGIFY(var) " = %" PRId32, var))
+#define DBG_U64(var) \
+  draw_debug_text(str8_fmt(g_state->frame_arena, STRINGIFY(var) " = %" PRIu64, var))
+#define DBG_S64(var) \
+  draw_debug_text(str8_fmt(g_state->frame_arena, STRINGIFY(var) " = %" PRId64, var))
+#define DBG_F32(var) \
+  draw_debug_text(str8_fmt(g_state->frame_arena, STRINGIFY(var) " = %f", var))
+#define DBG_F64(var) \
+  draw_debug_text(str8_fmt(g_state->frame_arena, STRINGIFY(var) " = %lf", var))
+#define DBG_V2(var) \
+  draw_debug_text(str8_fmt(g_state->frame_arena, STRINGIFY(var) " = (%f, %f)", var.x, var.y))
+
+
+
 typedef struct State State;
 INTROSPECT() struct State
 {
@@ -38,6 +65,9 @@ INTROSPECT() struct State
   MemArena *arena;
   MemArena *frame_arena;
   u64 frame_counter;
+
+  Camera2D camera;
+  Vector2 player_pos;
 };
 
 typedef void (*code_preload_t)(State *s);
