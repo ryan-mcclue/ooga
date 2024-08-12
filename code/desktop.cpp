@@ -107,7 +107,7 @@ int main(int argc, char *argv[])
   ReloadCode code = code_reload();
   code.preload(state);
   u64 prev_code_reload_time = GetFileModTime("build/" BINARY_RELOAD_NAME);
-  f32 reload_time = 0.25f;
+  f32 reload_time = 0.5f;
   f32 reload_timer = reload_time;
   for (b32 quit = false; !quit; state->frame_counter += 1)
   {  

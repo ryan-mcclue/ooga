@@ -96,6 +96,7 @@ code_update(State *state)
     {
       Entity *e = entity_create_rock();
       e->pos = {rw/4 + i * f32_rand_range(&rand_seed, 1, 100), rh/4};
+      // screen_to_world
       e = entity_create_tree();
       e->pos = {rw/2 + i * f32_rand_range(&rand_seed, 1, 100), rh/2};
     }
@@ -128,8 +129,19 @@ code_update(State *state)
   ClearBackground(RAYWHITE);
   BeginMode2D(state->camera);
 
+  f32 tile_dim = 240.f;
+  Vector2 player_tile = state->camera.target * (1/tile_dim); 
+  for (u32 i = 0; i < 16*16; i += 1)
+  {
+    u32 x = i % 16;
+    u32 y = i / 16;
+    Color c = (x + y) & 1 ? GREEN : BROWN;
+    DrawRectangle((player_tile.x - 8 + x) * tile_dim, (player_tile.y - 8 + y) * tile_dim, tile_dim, tile_dim, c);
+  }
+
   // NOTE(Ryan): Rendering at 1920; Sprites done on 240
-  f32 texture_scale = 8.0f;
+  f32 entity_scale = 8.0f;
+  f32 entity_radius = 10.f * (entity_scale * 0.5f);
   for (u32 i = 0; i < ARRAY_COUNT(state->entities); i += 1)
   {
     Entity *e = &g_state->entities[i];
@@ -150,11 +162,11 @@ code_update(State *state)
       } break;
       default: {}
     }
-    DrawTextureEx(assets_get_texture(e_texture_str), e->pos, 0, texture_scale, BLACK);
+    // TODO: only centre on x
+    DrawTextureEx(assets_get_texture(e_texture_str), e->pos - entity_radius, 0, entity_scale, BLACK);
   }
 
   f32 closest = f32_inf();
-  f32 draw_radius = 10.f * (texture_scale * 0.5f);
   Vector2 mouse = GetScreenToWorld2D(GetMousePosition(), state->camera);
   Entity *mouse_entity = NULL;
   for (u32 i = 0; i < ARRAY_COUNT(state->entities); i += 1)
@@ -163,7 +175,7 @@ code_update(State *state)
     // Vector2 centred_e = 
     // e->radius
     f32 length = Vector2LengthSqr(e->pos - mouse);
-    if (length < closest && length < SQUARE(draw_radius))
+    if (length < closest && length < SQUARE(entity_radius))
     {
       mouse_entity = e;
       closest = length;
@@ -174,10 +186,10 @@ code_update(State *state)
   if (mouse_entity != NULL) 
   {
     DBG_V2(mouse_entity->pos);
-    DrawCircle(mouse_entity->pos.x, mouse_entity->pos.y, draw_radius, RED);
+    DrawCircle(mouse_entity->pos.x, mouse_entity->pos.y, entity_radius, RED);
   }
 
-  g_at_y = 0.f;
+  g_dbg_at_y = 0.f;
   EndMode2D();
   EndDrawing();
   }

@@ -28,20 +28,17 @@ INTERNAL bool operator==(Vector2 a, Vector2 b) { return f32_eq(a.x, b.x) && f32_
 INTERNAL bool operator!=(Vector2 a, Vector2 b) { return !(a == b); }
 #endif
 
-#if DEBUG_BUILD
-GLOBAL f32 g_at_y = 0.f;
+GLOBAL f32 g_dbg_at_y = 0.f;
 INTERNAL void
 draw_debug_text(String8 s)
 {
   f32 at_x = 50.f;
   char text[64] = ZERO_STRUCT;
   str8_to_cstr(s, text, sizeof(text));
-  DrawText(text, at_x, g_at_y, 48, RED);
-  g_at_y += 50.f;
+  DrawText(text, at_x, g_dbg_at_y, 48, RED);
+  g_dbg_at_y += 50.f;
 }
-#else
-INTERNAL void draw_debug_text(String8 text) {}
-#endif
+#if DEBUG_BUILD
 #define DBG_U32(var) \
   draw_debug_text(str8_fmt(g_state->frame_arena, STRINGIFY(var) " = %" PRIu32, var))
 #define DBG_S32(var) \
@@ -56,6 +53,15 @@ INTERNAL void draw_debug_text(String8 text) {}
   draw_debug_text(str8_fmt(g_state->frame_arena, STRINGIFY(var) " = %lf", var))
 #define DBG_V2(var) \
   draw_debug_text(str8_fmt(g_state->frame_arena, STRINGIFY(var) " = (%f, %f)", var.x, var.y))
+#else
+#define DBG_U32(var)
+#define DBG_S32(var)
+#define DBG_U64(var)
+#define DBG_S64(var)
+#define DBG_F32(var)
+#define DBG_F64(var)
+#define DBG_V2(var)
+#endif
 
 typedef enum
 {
