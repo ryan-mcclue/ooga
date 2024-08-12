@@ -28,16 +28,20 @@ INTERNAL bool operator==(Vector2 a, Vector2 b) { return f32_eq(a.x, b.x) && f32_
 INTERNAL bool operator!=(Vector2 a, Vector2 b) { return !(a == b); }
 #endif
 
+#if DEBUG_BUILD
+GLOBAL f32 g_at_y = 0.f;
 INTERNAL void
-draw_debug_text(String8 text)
+draw_debug_text(String8 s)
 {
   f32 at_x = 50.f;
-  LOCAL_PERSIST f32 at_y = 50.f;
   char text[64] = ZERO_STRUCT;
   str8_to_cstr(s, text, sizeof(text));
-  DrawText(text, at_x, at_y, 48, RED);
-  at_y += 50.f;
+  DrawText(text, at_x, g_at_y, 48, RED);
+  g_at_y += 50.f;
 }
+#else
+INTERNAL void draw_debug_text(String8 text) {}
+#endif
 #define DBG_U32(var) \
   draw_debug_text(str8_fmt(g_state->frame_arena, STRINGIFY(var) " = %" PRIu32, var))
 #define DBG_S32(var) \
@@ -53,7 +57,32 @@ draw_debug_text(String8 text)
 #define DBG_V2(var) \
   draw_debug_text(str8_fmt(g_state->frame_arena, STRINGIFY(var) " = (%f, %f)", var.x, var.y))
 
+typedef enum
+{
+  ENTITY_TYPE_NIL = 0,
+  ENTITY_TYPE_ROCK = 1,
+  ENTITY_TYPE_TREE = 2,
+  ENTITY_TYPE_PLAYER = 3,
+} ENTITY_TYPE;
 
+typedef struct Entity Entity;
+struct Entity
+{
+  ENTITY_TYPE type;
+  b32 is_active;
+  Vector2 pos;
+
+  // TODO:
+  // bool render_texture;
+  // TEXTURE_ID texture_id;
+};
+/*
+Texture *get_texture(TEXTURE_ID id)
+{
+  if (id > TEXTURE_ID_NIL && id < TEXTURE_ID_MAX) return &g_textures[id];
+  else return &g_textures[TEXTURE_ID_NIL];
+}
+*/
 
 typedef struct State State;
 INTROSPECT() struct State
@@ -66,8 +95,11 @@ INTROSPECT() struct State
   MemArena *frame_arena;
   u64 frame_counter;
 
+  Entity entities[1024];
+  // TODO: use generation handles
+  Entity *player;
+
   Camera2D camera;
-  Vector2 player_pos;
 };
 
 typedef void (*code_preload_t)(State *s);
