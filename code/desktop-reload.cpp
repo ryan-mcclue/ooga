@@ -16,6 +16,8 @@ GLOBAL State *g_state = NULL;
 #define ROCK_HEALTH 3
 #define TREE_HEALTH 3
 
+// https://github.com/nilsve/docker-aseprite-linux/blob/master/compile.sh 
+
 EXPORT void 
 code_preload(State *state)
 {
@@ -98,6 +100,14 @@ entity_create_tree(void)
   Entity *e = entity_alloc();
   e->type = ENTITY_TYPE_TREE;
   e->health = TREE_HEALTH;
+  return e;
+}
+
+INTERNAL Entity *
+entity_create_item_pinewood(void)
+{
+  Entity *e = entity_alloc();
+  e->type = ENTITY_TYPE_ITEM_PINEWOOD;
   return e;
 }
 
@@ -196,26 +206,24 @@ code_update(State *state)
       default: {}
     }
     Texture e_texture = assets_get_texture(e_texture_str);
-    //DrawTextureEx(e_texture, e->pos - entity_radius, 0, entity_scale, BLACK);
-    // TODO: centered
-     //Vector2 e_draw_pos = tile_to_world_pos({e->pos.x - entity_radius, e->pos.y});
     Vector2 e_world_pos = tile_to_world_pos(e->pos);
+
+    // TODO: wrapper for DrawTexture() that if receives ZERO_TEXTURE draws rectangle
     DrawTextureEx(e_texture, e_world_pos, 0, entity_scale, BLACK);
 
     Vector2 texture_size = V2(e_texture.width, e_texture.height) * entity_scale;
     Rectangle e_hitbox = {e_world_pos.x, e_world_pos.y, texture_size.x, texture_size.y};
     DrawRectangleLinesEx(e_hitbox, 2.0f, MAGENTA);
-    RectangleNode *n = MEM_ARENA_PUSH_STRUCT(g_state->frame_arena, RectangleNode);
-    n->r = e_hitbox;
-    SLL_STACK_PUSH(g_state->e_hitboxes_first, n);
+    Hitbox *h = MEM_ARENA_PUSH_STRUCT(g_state->frame_arena, Hitbox);
+    h->r = e_hitbox;
+    h->e = e;
+    SLL_STACK_PUSH(g_state->e_hitbox_stack, h);
   }
 
   f32 closest = f32_inf();
   Vector2 mouse = GetScreenToWorld2D(GetMousePosition(), state->camera);
-  Rectangle mouse_hitbox = ZERO_STRUCT;
-
-  // stack, so will draw most recent first
-  for (RectangleNode *e_hitbox = state->e_hitboxes_first; 
+  Entity *e_hovering_entity = NULL;
+  for (Hitbox *e_hitbox = state->e_hitbox_stack; 
        e_hitbox != NULL; 
        e_hitbox = e_hitbox->next)
   {
@@ -225,18 +233,28 @@ code_update(State *state)
     f32 length = Vector2LengthSqr(centre - mouse);
     if (length < closest && length <= SQUARE(radius))
     {
-      mouse_hitbox = {centre.x, centre.y, radius, radius};
+      e_hovering_entity = e_hitbox->e;
       closest = length;
     }
   }
-  DBG_V2(mouse);
-  Vector2 closest_m = {mouse_hitbox.x, mouse_hitbox.y};
-  DBG_V2(closest_m);
-  DrawCircle(mouse_hitbox.x, mouse_hitbox.y, mouse_hitbox.width, RED);
+
+  if (e_hovering_entity != NULL && IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+  {
+    e_hovering_entity->health -= 1;
+    if (e_hovering_entity->health <= 0)
+    {
+      switch (e_hovering_entity->type)
+      {
+
+      }
+
+      entity_free(e_hovering_entity);
+    }
+  }
 
   // IMPORTANT: using frame arena, so don't have to explicitly clear memory
   // TODO: have frame arena be cleared to 0, so don't have explicit 'clearers'
-  state->e_hitboxes_first = NULL;
+  state->e_hitbox_stack = NULL;
   g_dbg_at_y = 0.f;
   EndMode2D();
   EndDrawing();

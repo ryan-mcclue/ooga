@@ -72,6 +72,8 @@ typedef enum
   ENTITY_TYPE_ROCK = 1,
   ENTITY_TYPE_TREE = 2,
   ENTITY_TYPE_PLAYER = 3,
+  ENTITY_TYPE_ITEM_ROCK = 4,
+  ENTITY_TYPE_ITEM_PINEWOOD = 5
 } ENTITY_TYPE;
 
 typedef struct Entity Entity;
@@ -82,6 +84,7 @@ struct Entity
   Vector2 pos;
   u32 health;
 
+  ItemID item;
   // TODO:
   // bool render_texture;
   // TEXTURE_ID texture_id;
@@ -94,11 +97,12 @@ Texture *get_texture(TEXTURE_ID id)
 }
 */
 
-typedef struct RectangleNode RectangleNode;
-struct RectangleNode
+typedef struct Hitbox Hitbox;
+struct Hitbox
 {
-  RectangleNode *next;
+  Hitbox *next;
   Rectangle r;
+  Entity *e;
 };
 
 typedef struct State State;
@@ -116,7 +120,7 @@ INTROSPECT() struct State
   // TODO: use generation handles
   Entity *player;
 
-  RectangleNode *e_hitboxes_first;
+  Hitbox *e_hitbox_stack;
 
   Camera2D camera;
 };
