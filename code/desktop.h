@@ -84,7 +84,9 @@ struct Entity
   Vector2 pos;
   u32 health;
 
-  ItemID item;
+  // TODO: make mask
+  bool is_item;
+  //ItemID item;
   // TODO:
   // bool render_texture;
   // TEXTURE_ID texture_id;

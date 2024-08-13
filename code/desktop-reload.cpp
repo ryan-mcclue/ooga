@@ -16,8 +16,6 @@ GLOBAL State *g_state = NULL;
 #define ROCK_HEALTH 3
 #define TREE_HEALTH 3
 
-// https://github.com/nilsve/docker-aseprite-linux/blob/master/compile.sh 
-
 EXPORT void 
 code_preload(State *state)
 {
@@ -108,6 +106,7 @@ entity_create_item_pinewood(void)
 {
   Entity *e = entity_alloc();
   e->type = ENTITY_TYPE_ITEM_PINEWOOD;
+  e->is_item = true;
   return e;
 }
 
@@ -203,10 +202,18 @@ code_update(State *state)
       {
         e_texture_str = str8_lit("assets/tree.png");
       } break;
+      case ENTITY_TYPE_ITEM_PINEWOOD:
+      {
+        e_texture_str = str8_lit("assets/item-pinewood.png");
+      } break;
       default: {}
     }
     Texture e_texture = assets_get_texture(e_texture_str);
     Vector2 e_world_pos = tile_to_world_pos(e->pos);
+    if (e->type == ENTITY_TYPE_ITEM_PINEWOOD)
+    {
+      e_world_pos.y += (entity_scale * 5 * f32_sin_in_out(GetTime()));
+    }
 
     // TODO: wrapper for DrawTexture() that if receives ZERO_TEXTURE draws rectangle
     DrawTextureEx(e_texture, e_world_pos, 0, entity_scale, BLACK);
@@ -223,6 +230,7 @@ code_update(State *state)
   f32 closest = f32_inf();
   Vector2 mouse = GetScreenToWorld2D(GetMousePosition(), state->camera);
   Entity *e_hovering_entity = NULL;
+  Rectangle e_rect = ZERO_STRUCT;
   for (Hitbox *e_hitbox = state->e_hitbox_stack; 
        e_hitbox != NULL; 
        e_hitbox = e_hitbox->next)
@@ -231,12 +239,14 @@ code_update(State *state)
     f32 radius = MAX(r.width*.5f, r.height*.5f);
     Vector2 centre = {r.x + r.width*.5f, r.y + r.height*.5f};
     f32 length = Vector2LengthSqr(centre - mouse);
-    if (length < closest && length <= SQUARE(radius))
+    if (length < closest && length <= SQUARE(radius) && !e_hitbox->e->is_item)
     {
       e_hovering_entity = e_hitbox->e;
       closest = length;
+      e_rect = {r.x + r.width*.5f, r.y + r.height*.5f, radius, radius};
     }
   }
+  DrawCircle(e_rect.x, e_rect.y, e_rect.width, {122, 33, 11, 180});
 
   if (e_hovering_entity != NULL && IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
   {
@@ -245,7 +255,11 @@ code_update(State *state)
     {
       switch (e_hovering_entity->type)
       {
-
+        case ENTITY_TYPE_TREE:
+        {
+          Entity *e = entity_create_item_pinewood();
+          e->pos = e_hovering_entity->pos;
+        } break;
       }
 
       entity_free(e_hovering_entity);
