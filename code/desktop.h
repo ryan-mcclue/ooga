@@ -24,6 +24,9 @@ INTERNAL Vector2 operator-(Vector2 a, Vector2 b) { return Vector2Subtract(a, b);
 INTERNAL Vector2 & operator-=(Vector2 &a, Vector2 b) { a = a - b; return a; }
 INTERNAL Vector2 operator-(Vector2 a) { return Vector2Negate(a); }
 
+INTERNAL Vector2 operator/(Vector2 a, f32 b) { return {a.x/b, a.y/b}; }
+INTERNAL Vector2 operator/(Vector2 a, Vector2 b) { return Vector2Divide(a, b); }
+
 INTERNAL bool operator==(Vector2 a, Vector2 b) { return f32_eq(a.x, b.x) && f32_eq(a.y, b.y); }
 INTERNAL bool operator!=(Vector2 a, Vector2 b) { return !(a == b); }
 #endif
@@ -77,6 +80,7 @@ struct Entity
   ENTITY_TYPE type;
   b32 is_active;
   Vector2 pos;
+  u32 health;
 
   // TODO:
   // bool render_texture;
@@ -89,6 +93,13 @@ Texture *get_texture(TEXTURE_ID id)
   else return &g_textures[TEXTURE_ID_NIL];
 }
 */
+
+typedef struct RectangleNode RectangleNode;
+struct RectangleNode
+{
+  RectangleNode *next;
+  Rectangle r;
+};
 
 typedef struct State State;
 INTROSPECT() struct State
@@ -104,6 +115,8 @@ INTROSPECT() struct State
   Entity entities[1024];
   // TODO: use generation handles
   Entity *player;
+
+  RectangleNode *e_hitboxes_first;
 
   Camera2D camera;
 };
