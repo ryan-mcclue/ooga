@@ -169,6 +169,7 @@ code_update(State *state)
   ClearBackground(RAYWHITE);
   BeginMode2D(state->camera);
 
+
   Vector2 player_tile = state->camera.target / TILE_SIZE;
   for (u32 i = 0; i < 16*16; i += 1)
   {
@@ -181,6 +182,8 @@ code_update(State *state)
     DrawRectangleRec(tile_rec, c);
     //if (CheckCollisionPointRec(mouse_world, tile_rec))
   }
+
+  //DrawTextureEx(assets_get_texture(str8_lit("assets/rock.png")), {state->camera.target.x, state->camera.target.y + 10 * f32_sin_in(GetTime())}, 0, 1.f, WHITE);
 
   // NOTE(Ryan): Rendering at 1920; Sprites done on 240
   f32 entity_scale = 8.0f;
@@ -216,9 +219,9 @@ code_update(State *state)
     {
       e_world_pos.y += (entity_scale * 5 * f32_sin_in_out(GetTime()));
     }
-
-    // TODO: wrapper for DrawTexture() that if receives ZERO_TEXTURE draws rectangle
-    DrawTextureEx(e_texture, e_world_pos, 0, entity_scale, BLACK);
+    Color tint = BLACK;
+    if (e_texture.id == state->assets.default_texture.id) tint = WHITE;
+    DrawTextureEx(e_texture, e_world_pos, 0, entity_scale, tint);
 
     Vector2 texture_size = V2(e_texture.width, e_texture.height) * entity_scale;
     Rectangle e_hitbox = {e_world_pos.x, e_world_pos.y, texture_size.x, texture_size.y};
