@@ -136,6 +136,8 @@ code_update(State *state)
       e = entity_create_tree();
       e->pos = {f32_rand_range(&rand_seed, 0, 20), f32_rand_range(&rand_seed, 0, 20)};
     }
+
+    state->inventory_items[ENTITY_TYPE_ITEM_PINEWOOD].amount = 5;
   }
 
   // TODO: have input consumption to establish a hierarchical nature
@@ -200,7 +202,7 @@ code_update(State *state)
       } break;
       case ENTITY_TYPE_TREE:
       {
-        e_texture_str = str8_lit("assets/tree.png");
+        e_texture_str = str8_lit("assets/adasdasdas.png");
       } break;
       case ENTITY_TYPE_ITEM_PINEWOOD:
       {

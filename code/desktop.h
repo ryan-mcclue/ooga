@@ -73,8 +73,15 @@ typedef enum
   ENTITY_TYPE_TREE = 2,
   ENTITY_TYPE_PLAYER = 3,
   ENTITY_TYPE_ITEM_ROCK = 4,
-  ENTITY_TYPE_ITEM_PINEWOOD = 5
+  ENTITY_TYPE_ITEM_PINEWOOD = 5,
+  ENTITY_TYPE_COUNT
 } ENTITY_TYPE;
+
+typedef struct Item Item;
+struct Item
+{
+  int amount;
+};
 
 typedef struct Entity Entity;
 struct Entity
@@ -123,6 +130,9 @@ INTROSPECT() struct State
   Entity *player;
 
   Hitbox *e_hitbox_stack;
+
+  // type implicit from index
+  Item inventory_items[ENTITY_TYPE_COUNT];
 
   Camera2D camera;
 };
