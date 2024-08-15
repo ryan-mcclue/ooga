@@ -294,6 +294,7 @@ code_update(State *state)
     SLL_STACK_PUSH(g_state->hitbox_stack, h);
   }
 
+
   // :render overlays
   DrawCircle(e_hovering_rect.x, e_hovering_rect.y, e_hovering_rect.width, {122, 33, 11, 180});
   // :render inventory ui
@@ -310,7 +311,8 @@ code_update(State *state)
     for (u32 i = 0; i < ARRAY_COUNT(state->inventory_items); i += 1)
     {
       Rectangle box = {region.x + (box_w + box_m) * i, region.y, box_w, h};
-      DrawRectangleRec(box, BLACK);
+      DrawRectangleRec(box, {0, 0, 0, 125});
+      // TODO: blending not working! BeginBlendMode() and rlEnableColorBlend()
 
       Item *item = &state->inventory_items[i];
       if (item->amount > 0)
@@ -320,20 +322,28 @@ code_update(State *state)
         if (t.width > t.height) t_scale = (box_w / t.width);
         else t_scale = (h / t.height);
         t_scale *= 0.75f;
+        t_scale += f32_sin_in_out(GetTime());
+
+        f32 t_rotation = 360 * f32_sin_out(GetTime());
 
         Vector2 t_scaled = V2(t.width, t.height) * t_scale;
         Vector2 t_centered = {box.x + box.width*0.5f - t_scaled.x*0.5f, 
                              box.y + box.height*0.5f - t_scaled.y*0.5f};
-        DrawTextureEx(t, t_centered, 0.f, t_scale, WHITE);
+        //DrawTextureEx(t, t_centered, t_rotation, t_scale, WHITE);
+/*         DrawTexturePro(t, {0, 0, t.width, t.height}, 
+                      {t_centered.x, t_centered.y, t_scaled.x, t_scaled.y},
+                      {box.x + box.width*0.5f, box.y + box.height*0.5f},
+                      t_rotation, WHITE); */
+        DrawTexturePro(t, {0, 0, t.width, t.height}, 
+                      {t_centered.x + t_scaled.x*0.5f, t_centered.y + t_scaled.y*0.5f, t_scaled.x, t_scaled.y},
+                      {t_scaled.x*0.5f, t_scaled.y*0.5f},
+                      t_rotation, WHITE);
+                      // IMPORTANT: set offset to half width
+                      // then offset to original x and y
       }
     }
-
-    // get_texture_from_entity_type(e->type)
-
   }
   
-
-
   g_dbg_at_y = 0.f;
   EndMode2D();
   EndDrawing();
