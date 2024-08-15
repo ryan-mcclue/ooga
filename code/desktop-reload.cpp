@@ -15,6 +15,7 @@ GLOBAL State *g_state = NULL;
 #define TILE_SIZE V2(TILE_WIDTH, TILE_HEIGHT) 
 #define ROCK_HEALTH 3
 #define TREE_HEALTH 3
+#define PLAYER_PICKUP_RADIUS 40
 
 EXPORT void 
 code_preload(State *state)
@@ -125,6 +126,8 @@ code_update(State *state)
     state->is_initialised = true;
     state->camera.zoom = 1.f;
 
+    state->hitbox_arena = mem_arena_allocate(MB(64), MB(64));
+
     state->player = entity_create_player();
     state->player->pos = world_to_tile_pos({rw/2, rh/2});
 
@@ -165,11 +168,61 @@ code_update(State *state)
   // TODO: add player sprite w/h to calculation
   state->camera.offset = V2(rw/2, rh/2) * state->camera.zoom;
 
+  // :process entity hitboxes
+  f32 closest_hitbox_lengthsq = f32_inf();
+  Vector2 mouse_world = GetScreenToWorld2D(GetMousePosition(), state->camera);
+  Entity *e_hovering = NULL;
+  Rectangle e_hovering_rect = ZERO_STRUCT;
+  Vector2 player_world = tile_to_world_pos(state->player->pos);
+  for (Hitbox *h = state->hitbox_stack; h != NULL; h = h->next)
+  {
+    Rectangle r = h->r;
+    Entity *e = h->e;
+    f32 h_radius = MAX(r.width*.5f, r.height*.5f);
+    Vector2 h_centre = {r.x + r.width*.5f, r.y + r.height*.5f};
+    f32 lengthsq = Vector2LengthSqr(h_centre - mouse_world);
+    if (lengthsq < closest_hitbox_lengthsq && 
+        lengthsq <= SQUARE(h_radius) && !e->is_item)
+    {
+      e_hovering= e;
+      closest_hitbox_lengthsq = lengthsq;
+      e_hovering_rect = {r.x + r.width*.5f, r.y + r.height*.5f, h_radius, h_radius};
+    }
+
+    // TODO: get player hitbox so can get distance from it's centre
+    lengthsq = Vector2LengthSqr(h_centre - player_world);
+    if (e->is_item && lengthsq < SQUARE(PLAYER_PICKUP_RADIUS))
+    {
+      state->inventory_items[e->type].amount += 1;
+      entity_free(e);
+    }
+  }
+  mem_arena_clear(state->hitbox_arena);
+  state->hitbox_stack = NULL;
+
+  // :update entity destroy
+  if (e_hovering != NULL && IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+  {
+    e_hovering->health -= 1;
+    if (e_hovering->health <= 0)
+    {
+      switch (e_hovering->type)
+      {
+        case ENTITY_TYPE_TREE:
+        {
+          Entity *e = entity_create_item_pinewood();
+          e->pos = e_hovering->pos;
+        } break;
+      }
+      entity_free(e_hovering);
+    }
+  }
+
   BeginDrawing();
   ClearBackground(RAYWHITE);
   BeginMode2D(state->camera);
 
-
+  // :render map
   Vector2 player_tile = state->camera.target / TILE_SIZE;
   for (u32 i = 0; i < 16*16; i += 1)
   {
@@ -186,6 +239,7 @@ code_update(State *state)
   //DrawTextureEx(assets_get_texture(str8_lit("assets/rock.png")), {state->camera.target.x, state->camera.target.y + 10 * f32_sin_in(GetTime())}, 0, 1.f, WHITE);
 
   // NOTE(Ryan): Rendering at 1920; Sprites done on 240
+  // :render entities
   f32 entity_scale = 8.0f;
   for (u32 i = 0; i < ARRAY_COUNT(state->entities); i += 1)
   {
@@ -205,7 +259,7 @@ code_update(State *state)
       } break;
       case ENTITY_TYPE_TREE:
       {
-        e_texture_str = str8_lit("assets/adasdasdas.png");
+        e_texture_str = str8_lit("assets/tree.png");
       } break;
       case ENTITY_TYPE_ITEM_PINEWOOD:
       {
@@ -226,54 +280,37 @@ code_update(State *state)
     Vector2 texture_size = V2(e_texture.width, e_texture.height) * entity_scale;
     Rectangle e_hitbox = {e_world_pos.x, e_world_pos.y, texture_size.x, texture_size.y};
     DrawRectangleLinesEx(e_hitbox, 2.0f, MAGENTA);
-    Hitbox *h = MEM_ARENA_PUSH_STRUCT(g_state->frame_arena, Hitbox);
+    Hitbox *h = MEM_ARENA_PUSH_STRUCT(state->hitbox_arena, Hitbox);
     h->r = e_hitbox;
     h->e = e;
-    SLL_STACK_PUSH(g_state->e_hitbox_stack, h);
+    SLL_STACK_PUSH(g_state->hitbox_stack, h);
   }
 
-  f32 closest = f32_inf();
-  Vector2 mouse = GetScreenToWorld2D(GetMousePosition(), state->camera);
-  Entity *e_hovering_entity = NULL;
-  Rectangle e_rect = ZERO_STRUCT;
-  for (Hitbox *e_hitbox = state->e_hitbox_stack; 
-       e_hitbox != NULL; 
-       e_hitbox = e_hitbox->next)
+  // :render overlays
+  DrawCircle(e_hovering_rect.x, e_hovering_rect.y, e_hovering_rect.width, {122, 33, 11, 180});
+  // :render inventory ui
   {
-    Rectangle r = e_hitbox->r;
-    f32 radius = MAX(r.width*.5f, r.height*.5f);
-    Vector2 centre = {r.x + r.width*.5f, r.y + r.height*.5f};
-    f32 length = Vector2LengthSqr(centre - mouse);
-    if (length < closest && length <= SQUARE(radius) && !e_hitbox->e->is_item)
+    f32 h = rh * 0.15f;
+    f32 box_w = rw * 0.1f;
+    f32 box_m = box_w * 0.3f;
+    f32 w = (box_w + box_m) * ARRAY_COUNT(state->inventory_items) - box_m;
+    f32 x = rw*0.5f - w*0.5f;
+    f32 y = rh - h;
+    Vector2 world_xy = GetScreenToWorld2D({x, y}, state->camera);
+    Rectangle region = {world_xy.x, world_xy.y, w, h};
+    DrawRectangleRec(region, WHITE);
+    for (u32 i = 0; i < ARRAY_COUNT(state->inventory_items); i += 1)
     {
-      e_hovering_entity = e_hitbox->e;
-      closest = length;
-      e_rect = {r.x + r.width*.5f, r.y + r.height*.5f, radius, radius};
+      Rectangle box = {region.x + (box_w + box_m) * i, region.y, box_w, h};
+      DrawRectangleRec(box, BLACK);
     }
+
+    // get_texture_from_entity_type(e->type)
+
   }
-  DrawCircle(e_rect.x, e_rect.y, e_rect.width, {122, 33, 11, 180});
+  
 
-  if (e_hovering_entity != NULL && IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
-  {
-    e_hovering_entity->health -= 1;
-    if (e_hovering_entity->health <= 0)
-    {
-      switch (e_hovering_entity->type)
-      {
-        case ENTITY_TYPE_TREE:
-        {
-          Entity *e = entity_create_item_pinewood();
-          e->pos = e_hovering_entity->pos;
-        } break;
-      }
 
-      entity_free(e_hovering_entity);
-    }
-  }
-
-  // IMPORTANT: using frame arena, so don't have to explicitly clear memory
-  // TODO: have frame arena be cleared to 0, so don't have explicit 'clearers'
-  state->e_hitbox_stack = NULL;
   g_dbg_at_y = 0.f;
   EndMode2D();
   EndDrawing();

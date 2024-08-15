@@ -129,7 +129,8 @@ INTROSPECT() struct State
   // TODO: use generation handles
   Entity *player;
 
-  Hitbox *e_hitbox_stack;
+  MemArena *hitbox_arena;
+  Hitbox *hitbox_stack;
 
   // type implicit from index
   Item inventory_items[ENTITY_TYPE_COUNT];
