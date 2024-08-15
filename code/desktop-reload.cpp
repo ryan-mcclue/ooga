@@ -111,6 +111,36 @@ entity_create_item_pinewood(void)
   return e;
 }
 
+INTERNAL Texture
+get_texture_from_entity_type(ENTITY_TYPE type)
+{
+  String8 texture_string = ZERO_STRUCT;
+  switch (type)
+  {
+    default:
+    {
+      return g_state->assets.default_texture;
+    } break;
+    case ENTITY_TYPE_PLAYER:
+    {
+      texture_string = str8_lit("assets/player.png");
+    } break;
+    case ENTITY_TYPE_ROCK:
+    {
+      texture_string = str8_lit("assets/rock.png");
+    } break;
+    case ENTITY_TYPE_TREE:
+    {
+      texture_string = str8_lit("assets/tree.png");
+    } break;
+    case ENTITY_TYPE_ITEM_PINEWOOD:
+    {
+      texture_string = str8_lit("assets/item-pinewood.png");
+    } break;
+  }
+  return assets_get_texture(texture_string);
+}
+
 EXPORT void 
 code_update(State *state)
 { 
@@ -140,7 +170,7 @@ code_update(State *state)
       e->pos = {f32_rand_range(&rand_seed, 0, 20), f32_rand_range(&rand_seed, 0, 20)};
     }
 
-    state->inventory_items[ENTITY_TYPE_ITEM_PINEWOOD].amount = 5;
+    //state->inventory_items[ENTITY_TYPE_ITEM_PINEWOOD].amount = 5;
   }
 
   // TODO: have input consumption to establish a hierarchical nature
@@ -245,29 +275,7 @@ code_update(State *state)
   {
     Entity *e = &g_state->entities[i];
     if (!e->is_active) continue;
-
-    String8 e_texture_str = ZERO_STRUCT;
-    switch (e->type)
-    {
-      case ENTITY_TYPE_PLAYER:
-      {
-        e_texture_str = str8_lit("assets/player.png");
-      } break;
-      case ENTITY_TYPE_ROCK:
-      {
-        e_texture_str = str8_lit("assets/rock.png");
-      } break;
-      case ENTITY_TYPE_TREE:
-      {
-        e_texture_str = str8_lit("assets/tree.png");
-      } break;
-      case ENTITY_TYPE_ITEM_PINEWOOD:
-      {
-        e_texture_str = str8_lit("assets/item-pinewood.png");
-      } break;
-      default: {}
-    }
-    Texture e_texture = assets_get_texture(e_texture_str);
+    Texture e_texture = get_texture_from_entity_type(e->type);
     Vector2 e_world_pos = tile_to_world_pos(e->pos);
     if (e->type == ENTITY_TYPE_ITEM_PINEWOOD)
     {
@@ -303,6 +311,21 @@ code_update(State *state)
     {
       Rectangle box = {region.x + (box_w + box_m) * i, region.y, box_w, h};
       DrawRectangleRec(box, BLACK);
+
+      Item *item = &state->inventory_items[i];
+      if (item->amount > 0)
+      {
+        Texture t = get_texture_from_entity_type((ENTITY_TYPE)i);
+        f32 t_scale = 0.f;
+        if (t.width > t.height) t_scale = (box_w / t.width);
+        else t_scale = (h / t.height);
+        t_scale *= 0.75f;
+
+        Vector2 t_scaled = V2(t.width, t.height) * t_scale;
+        Vector2 t_centered = {box.x + box.width*0.5f - t_scaled.x*0.5f, 
+                             box.y + box.height*0.5f - t_scaled.y*0.5f};
+        DrawTextureEx(t, t_centered, 0.f, t_scale, WHITE);
+      }
     }
 
     // get_texture_from_entity_type(e->type)
