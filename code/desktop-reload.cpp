@@ -5,7 +5,7 @@
 
 #include "desktop.h"
 
-GLOBAL State *g_state = NULL;
+State *g_state = NULL;
 
 #include "desktop-assets.cpp"
 
@@ -113,6 +113,24 @@ entity_create_item_pinewood(void)
   return e;
 }
 
+INTERNAL Entity *
+entity_create_building_furnace(void)
+{
+  Entity *e = entity_alloc();
+  e->type = ENTITY_TYPE_BUILDING_FURNACE;
+  return e;
+}
+
+INTERNAL void
+inc_inventory_item_count(ENTITY_TYPE t, s32 inc)
+{
+  if (t >= ENTITY_TYPE_ITEM_FIRST && t <= ENTITY_TYPE_ITEM_LAST)
+  {
+    u32 i = t - ENTITY_TYPE_ITEM_FIRST;
+    g_state->inventory_items[i].amount += inc;
+  }
+}
+
 INTERNAL Texture
 get_texture_from_entity_type(ENTITY_TYPE type)
 {
@@ -138,6 +156,14 @@ get_texture_from_entity_type(ENTITY_TYPE type)
     case ENTITY_TYPE_ITEM_PINEWOOD:
     {
       texture_string = str8_lit("assets/item-pinewood.png");
+    } break;
+    case ENTITY_TYPE_BUILDING_FURNACE:
+    {
+      texture_string = str8_lit("assets/building-furnace.png");
+    } break;
+    case ENTITY_TYPE_BUILDING_WORKBENCH:
+    {
+      texture_string = str8_lit("assets/building-workbench.png");
     } break;
   }
   return assets_get_texture(texture_string);
@@ -168,6 +194,14 @@ get_pretty_name_from_entity_type(ENTITY_TYPE type)
     {
       return "Pinewood";
     } break;
+    case ENTITY_TYPE_BUILDING_FURNACE:
+    {
+      return "Furnace";
+    } break;
+    case ENTITY_TYPE_BUILDING_WORKBENCH:
+    {
+      return "Workbench";
+    } break;
   }
 }
 
@@ -192,6 +226,7 @@ code_update(State *state)
     state->player = entity_create_player();
     state->player->pos = world_to_tile_pos({rw/2, rh/2});
 
+    #if DEBUG_BUILD
     u32 rand_seed = 1337;
     for (u32 i = 0; i < 10; i += 1)
     {
@@ -200,8 +235,12 @@ code_update(State *state)
       e = entity_create_tree();
       e->pos = {f32_rand_range(&rand_seed, 0, 20), f32_rand_range(&rand_seed, 0, 20)};
     }
+    inc_inventory_item_count(ENTITY_TYPE_ITEM_PINEWOOD, 5);
 
-    //state->inventory_items[ENTITY_TYPE_ITEM_PINEWOOD].amount = 5;
+    Entity *e = entity_create_building_furnace();
+    e->pos = {10, 2};
+    
+    #endif
   }
 
   // TODO: have input consumption to establish a hierarchical nature
@@ -254,7 +293,7 @@ code_update(State *state)
     lengthsq = Vector2LengthSqr(h_centre - player_world);
     if (e->is_item && lengthsq < SQUARE(PLAYER_PICKUP_RADIUS))
     {
-      state->inventory_items[e->type].amount += 1;
+      inc_inventory_item_count(e->type, 1);
       entity_free(e);
     }
   }
@@ -331,13 +370,18 @@ code_update(State *state)
     else state->ui_state = UI_STATE_INVENTORY;
   }
 
+  if (IsKeyReleased(KEY_C))
+  {
+    if (state->ui_state == UI_STATE_BUILDINGS) state->ui_state = UI_STATE_NIL;
+    else state->ui_state = UI_STATE_BUILDINGS;
+  }
+
   // :render overlays
   DrawCircle(e_hovering_rect.x, e_hovering_rect.y, e_hovering_rect.width, {122, 33, 11, 180});
   // :render inventory ui
+  // TODO: stack based ui values, e.g. UI_Opacity(230), UI_FontSize() {}
   f32 ui_inventory_alpha_target_t = !!(f32)(state->ui_state == UI_STATE_INVENTORY);
   state->ui_inventory_alpha_t += (ui_inventory_alpha_target_t - state->ui_inventory_alpha_t) * f32_exp_out_fast(dt);
-  DBG_F32(ui_inventory_alpha_target_t);
-  DBG_F32(state->ui_inventory_alpha_t);
   if (f32_eq(state->ui_inventory_alpha_t, 0.f))
   {
     f32 h = rh * 0.15f;
@@ -349,16 +393,17 @@ code_update(State *state)
     f32 y = rh - h;
     Vector2 world_xy = GetScreenToWorld2D({x, y}, state->camera);
     Rectangle region = {world_xy.x, world_xy.y, w, h};
-    DrawRectangleRec(region, WHITE);
+    //DrawRectangleRec(region, WHITE);
     for (u32 i = 0; i < ARRAY_COUNT(state->inventory_items); i += 1)
     {
       Rectangle box = {region.x + (box_w + box_m) * i, region.y, box_w, h};
       DrawRectangleRec(box, {0, 0, 0, 125});
 
-      Item *item = &state->inventory_items[i];
+      ItemData *item = &state->inventory_items[i];
+      ENTITY_TYPE type = (i + ENTITY_TYPE_ITEM_FIRST);
       if (item->amount > 0)
       {
-        Texture t = get_texture_from_entity_type((ENTITY_TYPE)i);
+        Texture t = get_texture_from_entity_type(type);
         f32 t_scale = 0.f;
         if (t.width > t.height) t_scale = (box_w / t.width);
         else t_scale = (h / t.height);
@@ -396,7 +441,7 @@ code_update(State *state)
 
           f32 font_size = 48.f;
           String8 text_fmt = str8_fmt(state->frame_arena, "%s (%d)", 
-                                      get_pretty_name_from_entity_type((ENTITY_TYPE)i), 
+                                      get_pretty_name_from_entity_type(type),
                                       item->amount);
           char *text = (char *)text_fmt.content;
           Font font = assets_get_font(str8_lit("assets/Alegreya-Regular.ttf"));
@@ -404,14 +449,78 @@ code_update(State *state)
           Vector2 text_pos = {tooltip.x + tooltip.width*0.5f - text_size.x*0.5f, tooltip.y};
           DrawTextEx(font, text, text_pos, font_size, 1.f, WHITE);
         }
-
-/*         Vector2 amount_pos = {box.x, box.y};
-        DrawTextEx()), 
-                  "5", amount_pos, 34, 1.f, WHITE); */
       }
     }
   }
-  
+  // :render buildings ui  
+  if (state->ui_state == UI_STATE_BUILDINGS)
+  {
+    f32 h = rh * 0.15f;
+    f32 box_w = rw * 0.1f;
+    f32 box_m = box_w * 0.3f;
+    // TODO: make fixed width and wrap when necessary
+    f32 w = (box_w + box_m) * ARRAY_COUNT(state->buildings) - box_m;
+    f32 x = rw*0.5f - w*0.5f;
+    f32 y = 0.0f;
+    Vector2 world_xy = GetScreenToWorld2D({x, y}, state->camera);
+    Rectangle region = {world_xy.x, world_xy.y, w, h};
+    for (u32 i = 0; i < ARRAY_COUNT(state->buildings); i += 1)
+    {
+      Rectangle box = {region.x + (box_w + box_m) * i, region.y, box_w, h};
+      DrawRectangleRec(box, {0, 0, 0, 125});
+
+      ItemData *item = &state->inventory_items[i];
+      ENTITY_TYPE type = (i + ENTITY_TYPE_BUILDING_FIRST);
+      Texture t = get_texture_from_entity_type(type);
+      f32 t_scale = 0.f;
+      if (t.width > t.height)
+        t_scale = (box_w / t.width);
+      else
+        t_scale = (h / t.height);
+      t_scale *= 0.75f;
+
+      f32 t_rotation = 0.f;
+      // f32 t_rotation = 360 * f32_sin_out(GetTime());
+
+      bool box_hover = CheckCollisionPointRec(mouse_world, box);
+      if (box_hover)
+      {
+        t_scale += (t_scale * 0.1f);
+        // IMPORTANT: this is polishing. just need minimum feedback for prototype
+        // f32_sin_in_out(GetTime());
+      }
+
+      Vector2 t_scaled = V2(t.width, t.height) * t_scale;
+      Vector2 t_centered = {box.x + box.width * 0.5f - t_scaled.x * 0.5f,
+                            box.y + box.height * 0.5f - t_scaled.y * 0.5f};
+
+      // IMPORTANT: after setting origin to centre, we must now pass the centre as draw point
+      DrawTexturePro(t, {0, 0, t.width, t.height},
+                     {t_centered.x + t_scaled.x * 0.5f, t_centered.y + t_scaled.y * 0.5f, t_scaled.x, t_scaled.y},
+                     {t_scaled.x * 0.5f, t_scaled.y * 0.5f},
+                     t_rotation, WHITE);
+      if (box_hover)
+      {
+        Vector2 t_centre = {t_centered.x + t_scaled.x * 0.5f, t_centered.y + t_scaled.y * 0.5f};
+        f32 tooltip_w = box_w * 1.5f;
+        f32 tooltip_h = h * 0.75f;
+        Rectangle tooltip = {t_centre.x - tooltip_w * 0.5f,
+                             t_centre.y, tooltip_w, tooltip_h};
+        // draw tooltip
+        DrawRectangleRec(tooltip, {0, 0, 255, 100});
+
+        f32 font_size = 48.f;
+        String8 text_fmt = str8_fmt(state->frame_arena, "%s",
+                                    get_pretty_name_from_entity_type(type));
+        char *text = (char *)text_fmt.content;
+        Font font = assets_get_font(str8_lit("assets/Alegreya-Regular.ttf"));
+        Vector2 text_size = MeasureTextEx(font, text, font_size, 1.f);
+        Vector2 text_pos = {tooltip.x + tooltip.width * 0.5f - text_size.x * 0.5f, tooltip.y};
+        DrawTextEx(font, text, text_pos, font_size, 1.f, WHITE);
+      }
+    }
+  }
+
   g_dbg_at_y = 0.f;
   EndMode2D();
   EndDrawing();

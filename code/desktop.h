@@ -31,14 +31,136 @@ INTERNAL bool operator==(Vector2 a, Vector2 b) { return f32_eq(a.x, b.x) && f32_
 INTERNAL bool operator!=(Vector2 a, Vector2 b) { return !(a == b); }
 #endif
 
-GLOBAL f32 g_dbg_at_y = 0.f;
+typedef u32 ENTITY_TYPE;
+enum
+{
+  ENTITY_TYPE_NIL = 0,
+
+#define ENTITY_TYPE_NORMAL_FIRST ENTITY_TYPE_ROCK
+  ENTITY_TYPE_ROCK,
+  ENTITY_TYPE_TREE,
+  ENTITY_TYPE_PLAYER,
+#define ENTITY_TYPE_NORMAL_LAST ENTITY_TYPE_PLAYER
+#define ENTITY_TYPE_NORMAL_COUNT (ENTITY_TYPE_NORMAL_LAST - ENTITY_TYPE_NORMAL_FIRST + 1)
+
+#define ENTITY_TYPE_ITEM_FIRST ENTITY_TYPE_ITEM_ROCK
+  ENTITY_TYPE_ITEM_ROCK,
+  ENTITY_TYPE_ITEM_PINEWOOD,
+#define ENTITY_TYPE_ITEM_LAST ENTITY_TYPE_ITEM_PINEWOOD
+#define ENTITY_TYPE_ITEM_COUNT (ENTITY_TYPE_ITEM_LAST - ENTITY_TYPE_ITEM_FIRST + 1)
+
+#define ENTITY_TYPE_BUILDING_FIRST ENTITY_TYPE_BUILDING_FURNACE
+  ENTITY_TYPE_BUILDING_FURNACE,
+  ENTITY_TYPE_BUILDING_WORKBENCH,
+#define ENTITY_TYPE_BUILDING_LAST ENTITY_TYPE_BUILDING_WORKBENCH
+#define ENTITY_TYPE_BUILDING_COUNT (ENTITY_TYPE_BUILDING_LAST - ENTITY_TYPE_BUILDING_FIRST + 1)
+
+  ENTITY_TYPE_COUNT
+};
+
+typedef struct ItemData ItemData;
+struct ItemData
+{
+  s32 amount;
+};
+
+typedef struct BuildingData BuildingData;
+struct BuildingData
+{
+  s32 something;
+};
+
+typedef struct Entity Entity;
+struct Entity
+{
+  ENTITY_TYPE type;
+  b32 is_active;
+  Vector2 pos;
+  u32 health;
+
+  // TODO: make mask
+  bool is_item;
+
+  //ItemID item;
+  // TODO:
+  // bool render_texture;
+  // TEXTURE_ID texture_id;
+};
+/*
+Texture *get_texture(TEXTURE_ID id)
+{
+  if (id > TEXTURE_ID_NIL && id < TEXTURE_ID_MAX) return &g_textures[id];
+  else return &g_textures[TEXTURE_ID_NIL];
+}
+init() { for (t in textures) warn_if(t == NULL) }
+*/
+
+typedef struct Hitbox Hitbox;
+struct Hitbox
+{
+  Hitbox *next;
+  Rectangle r;
+  Entity *e;
+};
+
+typedef enum
+{
+  UI_STATE_NIL = 1,
+  UI_STATE_INVENTORY,
+  UI_STATE_BUILDINGS,
+} UI_STATE;
+
+
+typedef struct State State;
+INTROSPECT() struct State
+{
+  b32 is_initialised;
+
+  Assets assets;
+
+  MemArena *arena;
+  MemArena *frame_arena;
+  u64 frame_counter;
+
+  Entity entities[1024];
+  // TODO: use generation handles
+  Entity *player;
+
+  UI_STATE ui_state;
+  f32 ui_inventory_alpha_t;
+
+  MemArena *hitbox_arena;
+  Hitbox *hitbox_stack;
+
+  ItemData inventory_items[ENTITY_TYPE_ITEM_COUNT];
+  BuildingData buildings[ENTITY_TYPE_BUILDING_COUNT];
+
+  Camera2D camera;
+};
+
+typedef void (*code_preload_t)(State *s);
+typedef void (*code_update_t)(State *s);
+typedef void (*code_postload_t)(State *s);
+typedef void (*code_profiler_end_and_print_t)(State *s);
+
+typedef struct ReloadCode ReloadCode;
+struct ReloadCode
+{
+  code_preload_t preload;
+  code_update_t update;
+  code_postload_t postload;
+  code_profiler_end_and_print_t profiler_end_and_print;
+};
+
+GLOBAL f32 g_dbg_at_y;
+extern State *g_state; 
 INTERNAL void
 draw_debug_text(String8 s)
 {
-  f32 at_x = 50.f;
   char text[64] = ZERO_STRUCT;
   str8_to_cstr(s, text, sizeof(text));
-  DrawText(text, at_x, g_dbg_at_y, 48, RED);
+  Vector2 xy = GetScreenToWorld2D({50.f, g_dbg_at_y}, g_state->camera);
+  DrawText(text, xy.x, xy.y, 48, RED);
   g_dbg_at_y += 50.f;
 }
 #if DEBUG_BUILD
@@ -65,100 +187,5 @@ draw_debug_text(String8 s)
 #define DBG_F64(var)
 #define DBG_V2(var)
 #endif
-
-typedef enum
-{
-  ENTITY_TYPE_NIL = 0,
-  ENTITY_TYPE_ROCK = 1,
-  ENTITY_TYPE_TREE = 2,
-  ENTITY_TYPE_PLAYER = 3,
-  ENTITY_TYPE_ITEM_ROCK = 4,
-  ENTITY_TYPE_ITEM_PINEWOOD = 5,
-  ENTITY_TYPE_COUNT
-} ENTITY_TYPE;
-
-typedef struct Item Item;
-struct Item
-{
-  int amount;
-};
-
-typedef struct Entity Entity;
-struct Entity
-{
-  ENTITY_TYPE type;
-  b32 is_active;
-  Vector2 pos;
-  u32 health;
-
-  // TODO: make mask
-  bool is_item;
-  //ItemID item;
-  // TODO:
-  // bool render_texture;
-  // TEXTURE_ID texture_id;
-};
-/*
-Texture *get_texture(TEXTURE_ID id)
-{
-  if (id > TEXTURE_ID_NIL && id < TEXTURE_ID_MAX) return &g_textures[id];
-  else return &g_textures[TEXTURE_ID_NIL];
-}
-*/
-
-typedef struct Hitbox Hitbox;
-struct Hitbox
-{
-  Hitbox *next;
-  Rectangle r;
-  Entity *e;
-};
-
-typedef enum
-{
-  UI_STATE_NIL = 0,
-  UI_STATE_INVENTORY,
-} UI_STATE;
-
-typedef struct State State;
-INTROSPECT() struct State
-{
-  b32 is_initialised;
-
-  Assets assets;
-
-  MemArena *arena;
-  MemArena *frame_arena;
-  u64 frame_counter;
-
-  Entity entities[1024];
-  // TODO: use generation handles
-  Entity *player;
-
-  UI_STATE ui_state;
-  f32 ui_inventory_alpha_t;
-
-  MemArena *hitbox_arena;
-  Hitbox *hitbox_stack;
-
-  // type implicit from index
-  Item inventory_items[ENTITY_TYPE_COUNT];
-
-  Camera2D camera;
-};
-
-typedef void (*code_preload_t)(State *s);
-typedef void (*code_update_t)(State *s);
-typedef void (*code_postload_t)(State *s);
-typedef void (*code_profiler_end_and_print_t)(State *s);
-
-typedef struct ReloadCode ReloadCode;
-struct ReloadCode
-{
-  code_preload_t preload;
-  code_update_t update;
-  code_postload_t postload;
-  code_profiler_end_and_print_t profiler_end_and_print;
-};
 
 #endif
