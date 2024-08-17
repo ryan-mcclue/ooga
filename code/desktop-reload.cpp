@@ -10,12 +10,14 @@ GLOBAL State *g_state = NULL;
 #include "desktop-assets.cpp"
 
 // TODO: merge these into an introspected struct for UI tweaking
+// :tweaks
 #define TILE_WIDTH 120
 #define TILE_HEIGHT TILE_WIDTH
 #define TILE_SIZE V2(TILE_WIDTH, TILE_HEIGHT) 
 #define ROCK_HEALTH 3
 #define TREE_HEALTH 3
 #define PLAYER_PICKUP_RADIUS 40
+#define TOOLTIP_BOX_COLOUR
 
 EXPORT void 
 code_preload(State *state)
@@ -140,6 +142,35 @@ get_texture_from_entity_type(ENTITY_TYPE type)
   }
   return assets_get_texture(texture_string);
 }
+
+INTERNAL char *
+get_pretty_name_from_entity_type(ENTITY_TYPE type)
+{
+  switch (type)
+  {
+    default:
+    {
+      return "Default";
+    } break;
+    case ENTITY_TYPE_PLAYER:
+    {
+      return "Player";
+    } break;
+    case ENTITY_TYPE_ROCK:
+    {
+      return "Rock";
+    } break;
+    case ENTITY_TYPE_TREE:
+    {
+      return "Tree";
+    } break;
+    case ENTITY_TYPE_ITEM_PINEWOOD:
+    {
+      return "Pinewood";
+    } break;
+  }
+}
+
 
 EXPORT void 
 code_update(State *state)
@@ -294,14 +325,25 @@ code_update(State *state)
     SLL_STACK_PUSH(g_state->hitbox_stack, h);
   }
 
+  if (IsKeyReleased(KEY_TAB)) 
+  {
+    if (state->ui_state == UI_STATE_INVENTORY) state->ui_state = UI_STATE_NIL;
+    else state->ui_state = UI_STATE_INVENTORY;
+  }
 
   // :render overlays
   DrawCircle(e_hovering_rect.x, e_hovering_rect.y, e_hovering_rect.width, {122, 33, 11, 180});
   // :render inventory ui
+  f32 ui_inventory_alpha_target_t = !!(f32)(state->ui_state == UI_STATE_INVENTORY);
+  state->ui_inventory_alpha_t += (ui_inventory_alpha_target_t - state->ui_inventory_alpha_t) * f32_exp_out_fast(dt);
+  DBG_F32(ui_inventory_alpha_target_t);
+  DBG_F32(state->ui_inventory_alpha_t);
+  if (f32_eq(state->ui_inventory_alpha_t, 0.f))
   {
     f32 h = rh * 0.15f;
     f32 box_w = rw * 0.1f;
     f32 box_m = box_w * 0.3f;
+    // TODO: make fixed width and wrap when necessary
     f32 w = (box_w + box_m) * ARRAY_COUNT(state->inventory_items) - box_m;
     f32 x = rw*0.5f - w*0.5f;
     f32 y = rh - h;
@@ -312,7 +354,6 @@ code_update(State *state)
     {
       Rectangle box = {region.x + (box_w + box_m) * i, region.y, box_w, h};
       DrawRectangleRec(box, {0, 0, 0, 125});
-      // TODO: blending not working! BeginBlendMode() and rlEnableColorBlend()
 
       Item *item = &state->inventory_items[i];
       if (item->amount > 0)
@@ -322,24 +363,51 @@ code_update(State *state)
         if (t.width > t.height) t_scale = (box_w / t.width);
         else t_scale = (h / t.height);
         t_scale *= 0.75f;
-        t_scale += f32_sin_in_out(GetTime());
 
-        f32 t_rotation = 360 * f32_sin_out(GetTime());
+        f32 t_rotation = 0.f;
+        // f32 t_rotation = 360 * f32_sin_out(GetTime());
+
+        bool box_hover = CheckCollisionPointRec(mouse_world, box);
+        if (box_hover)
+        {
+          t_scale += (t_scale * 0.1f);
+          // IMPORTANT: this is polishing. just need minimum feedback for prototype
+          // f32_sin_in_out(GetTime());
+        }
 
         Vector2 t_scaled = V2(t.width, t.height) * t_scale;
         Vector2 t_centered = {box.x + box.width*0.5f - t_scaled.x*0.5f, 
                              box.y + box.height*0.5f - t_scaled.y*0.5f};
-        //DrawTextureEx(t, t_centered, t_rotation, t_scale, WHITE);
-/*         DrawTexturePro(t, {0, 0, t.width, t.height}, 
-                      {t_centered.x, t_centered.y, t_scaled.x, t_scaled.y},
-                      {box.x + box.width*0.5f, box.y + box.height*0.5f},
-                      t_rotation, WHITE); */
+
+        // IMPORTANT: after setting origin to centre, we must now pass the centre as draw point
         DrawTexturePro(t, {0, 0, t.width, t.height}, 
                       {t_centered.x + t_scaled.x*0.5f, t_centered.y + t_scaled.y*0.5f, t_scaled.x, t_scaled.y},
                       {t_scaled.x*0.5f, t_scaled.y*0.5f},
                       t_rotation, WHITE);
-                      // IMPORTANT: set offset to half width
-                      // then offset to original x and y
+        if (box_hover)
+        {
+          Vector2 t_centre = {t_centered.x + t_scaled.x*0.5f, t_centered.y + t_scaled.y*0.5f};
+          f32 tooltip_w = box_w * 1.5f;
+          f32 tooltip_h = h * 0.75f;
+          Rectangle tooltip = {t_centre.x - tooltip_w*0.5f, 
+                               t_centre.y, tooltip_w, tooltip_h};
+          // draw tooltip
+          DrawRectangleRec(tooltip, {0, 0, 255, 100});
+
+          f32 font_size = 48.f;
+          String8 text_fmt = str8_fmt(state->frame_arena, "%s (%d)", 
+                                      get_pretty_name_from_entity_type((ENTITY_TYPE)i), 
+                                      item->amount);
+          char *text = (char *)text_fmt.content;
+          Font font = assets_get_font(str8_lit("assets/Alegreya-Regular.ttf"));
+          Vector2 text_size = MeasureTextEx(font, text, font_size, 1.f);
+          Vector2 text_pos = {tooltip.x + tooltip.width*0.5f - text_size.x*0.5f, tooltip.y};
+          DrawTextEx(font, text, text_pos, font_size, 1.f, WHITE);
+        }
+
+/*         Vector2 amount_pos = {box.x, box.y};
+        DrawTextEx()), 
+                  "5", amount_pos, 34, 1.f, WHITE); */
       }
     }
   }

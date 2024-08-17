@@ -114,6 +114,12 @@ struct Hitbox
   Entity *e;
 };
 
+typedef enum
+{
+  UI_STATE_NIL = 0,
+  UI_STATE_INVENTORY,
+} UI_STATE;
+
 typedef struct State State;
 INTROSPECT() struct State
 {
@@ -128,6 +134,9 @@ INTROSPECT() struct State
   Entity entities[1024];
   // TODO: use generation handles
   Entity *player;
+
+  UI_STATE ui_state;
+  f32 ui_inventory_alpha_t;
 
   MemArena *hitbox_arena;
   Hitbox *hitbox_stack;
