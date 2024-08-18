@@ -18,6 +18,8 @@ State *g_state = NULL;
 #define TREE_HEALTH 3
 #define PLAYER_PICKUP_RADIUS 40
 #define TOOLTIP_BOX_COLOUR
+#define UI_Z_LAYER 50
+#define WORLD_Z_LAYER 20
 
 EXPORT void 
 code_preload(State *state)
@@ -47,6 +49,17 @@ world_to_tile_pos(Vector2 world)
 }
 
 INTERNAL Vector2
+round_world_to_tile(Vector2 world)
+{
+  Vector2 r_world = ZERO_STRUCT;
+  r_world.x = u32_round_to_nearest(F32_ROUND_U32(world.x), 
+                                TILE_WIDTH * g_state->camera.zoom);
+  r_world.y = u32_round_to_nearest(F32_ROUND_U32(world.y), 
+                                TILE_HEIGHT * g_state->camera.zoom);
+  return r_world;
+}
+
+INTERNAL Vector2
 tile_to_world_pos(Vector2 tile)
 {
   Vector2 world = tile;
@@ -54,6 +67,7 @@ tile_to_world_pos(Vector2 tile)
   world.y *= (TILE_HEIGHT * g_state->camera.zoom);
   return world;
 }
+
 
 
 INTERNAL Entity *
@@ -139,6 +153,7 @@ get_texture_from_entity_type(ENTITY_TYPE type)
   {
     default:
     {
+      TraceLog(LOG_WARNING, "Failed to get texture");
       return g_state->assets.default_texture;
     } break;
     case ENTITY_TYPE_PLAYER:
@@ -205,7 +220,13 @@ get_pretty_name_from_entity_type(ENTITY_TYPE type)
   }
 }
 
+// TODO: ui_render() { push_z_layer(UI_Z_LAYER); pop_z_layer() }
+// so can have it at top
+// ui_render(); ... world_render()
 
+  // TODO: have input consumption to establish a hierarchical nature (mouse_hovering and clicking important)
+  // e.g: consume = inputs[code] &= ~(KEY_PRESSED);
+  // simply add hover_consumed and click_consumed on Frame struct
 EXPORT void 
 code_update(State *state)
 { 
@@ -244,8 +265,6 @@ code_update(State *state)
     #endif
   }
 
-  // TODO: have input consumption to establish a hierarchical nature (mouse_hovering and clicking important)
-  // e.g: consume = inputs[code] &= ~(KEY_PRESSED);
   if (IsKeyPressed(KEY_F)) 
   {
     if (IsWindowMaximized()) RestoreWindow();
@@ -532,7 +551,16 @@ code_update(State *state)
     
     Texture t = get_texture_from_entity_type(state->active_building_type);
     // TODO: get_aligned_vec_from_rect(rect, ALIGN_CENTRE);
-    DrawTextureEx(t, mouse_world, 0.f, entity_scale, WHITE);
+
+    Vector2 pos = round_world_to_tile(mouse_world);
+    DrawTextureEx(t, pos, 0.f, entity_scale, WHITE);
+    DrawRectangleLines(pos.x, pos.y, t.width, t.height, MAGENTA);
+    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) 
+    {
+      Entity *e = entity_create_building_furnace();
+      e->pos = pos;
+      state->active_building_type = ENTITY_TYPE_NIL;
+    }
   }
 
 
