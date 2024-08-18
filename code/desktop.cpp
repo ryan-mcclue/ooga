@@ -134,7 +134,8 @@ int main(int argc, char *argv[])
     #if ASAN_ENABLED
       if (GetTime() >= 5.0) quit = true;
     #endif
-    mem_arena_clear(state->frame_arena);
+    // TODO: have a frame (non-cleared) and a world (cleared)
+    mem_arena_reset(state->frame_arena);
   }
   CloseWindow();
 

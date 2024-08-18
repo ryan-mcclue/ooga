@@ -105,12 +105,13 @@ struct Hitbox
 
 typedef enum
 {
-  UI_STATE_NIL = 1,
+  UI_STATE_NIL = 0,
   UI_STATE_INVENTORY,
   UI_STATE_BUILDINGS,
 } UI_STATE;
 
-
+// TODO: move non-serialisation fields to an App struct
+// Have this be a global as well
 typedef struct State State;
 INTROSPECT() struct State
 {
@@ -128,6 +129,7 @@ INTROSPECT() struct State
 
   UI_STATE ui_state;
   f32 ui_inventory_alpha_t;
+  ENTITY_TYPE active_building_type;
 
   MemArena *hitbox_arena;
   Hitbox *hitbox_stack;

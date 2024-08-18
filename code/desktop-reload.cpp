@@ -212,6 +212,7 @@ code_update(State *state)
   PROFILE_FUNCTION() {
   g_state = state;
 
+// TODO: move these into a WorldFrame struct
   f32 dt = GetFrameTime();
   u32 rw = GetRenderWidth();
   u32 rh = GetRenderHeight();
@@ -243,7 +244,7 @@ code_update(State *state)
     #endif
   }
 
-  // TODO: have input consumption to establish a hierarchical nature
+  // TODO: have input consumption to establish a hierarchical nature (mouse_hovering and clicking important)
   // e.g: consume = inputs[code] &= ~(KEY_PRESSED);
   if (IsKeyPressed(KEY_F)) 
   {
@@ -499,6 +500,8 @@ code_update(State *state)
                      {t_centered.x + t_scaled.x * 0.5f, t_centered.y + t_scaled.y * 0.5f, t_scaled.x, t_scaled.y},
                      {t_scaled.x * 0.5f, t_scaled.y * 0.5f},
                      t_rotation, WHITE);
+
+      // draw tooltip
       if (box_hover)
       {
         Vector2 t_centre = {t_centered.x + t_scaled.x * 0.5f, t_centered.y + t_scaled.y * 0.5f};
@@ -506,7 +509,6 @@ code_update(State *state)
         f32 tooltip_h = h * 0.75f;
         Rectangle tooltip = {t_centre.x - tooltip_w * 0.5f,
                              t_centre.y, tooltip_w, tooltip_h};
-        // draw tooltip
         DrawRectangleRec(tooltip, {0, 0, 255, 100});
 
         f32 font_size = 48.f;
@@ -517,9 +519,22 @@ code_update(State *state)
         Vector2 text_size = MeasureTextEx(font, text, font_size, 1.f);
         Vector2 text_pos = {tooltip.x + tooltip.width * 0.5f - text_size.x * 0.5f, tooltip.y};
         DrawTextEx(font, text, text_pos, font_size, 1.f, WHITE);
+
+        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) state->active_building_type = type;
       }
     }
   }
+
+  // :render building mode ui
+  if (state->active_building_type != ENTITY_TYPE_NIL)
+  {
+    BuildingData *bd = &state->buildings[state->active_building_type - ENTITY_TYPE_BUILDING_FIRST];
+    
+    Texture t = get_texture_from_entity_type(state->active_building_type);
+    // TODO: get_aligned_vec_from_rect(rect, ALIGN_CENTRE);
+    DrawTextureEx(t, mouse_world, 0.f, entity_scale, WHITE);
+  }
+
 
   g_dbg_at_y = 0.f;
   EndMode2D();
