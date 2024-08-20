@@ -110,6 +110,13 @@ typedef enum
   UI_STATE_BUILDINGS,
 } UI_STATE;
 
+typedef struct S32Node S32Node;
+INTROSPECT() struct S32Node
+{
+  S32Node *next;
+  s32 z;
+};
+
 // TODO: move non-serialisation fields to an App struct
 // Have this be a global as well
 typedef struct State State;
@@ -122,6 +129,11 @@ INTROSPECT() struct State
   MemArena *arena;
   MemArena *frame_arena;
   u64 frame_counter;
+
+  bool hover_consumed;
+  bool left_click_consumed;
+
+  S32Node *z_stack;
 
   Entity entities[1024];
   // TODO: use generation handles

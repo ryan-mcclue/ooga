@@ -5,6 +5,8 @@
 
 #include "desktop.h"
 
+#include <rlgl.h>
+
 State *g_state = NULL;
 
 #include "desktop-assets.cpp"
@@ -38,6 +40,229 @@ code_profiler_end_and_print(State *state)
 {
   profiler_end_and_print();
 }
+
+INTERNAL bool
+hover_consume(Rectangle r)
+{
+  if (g_state->hover_consumed) return false;
+  Vector2 mouse_world = GetScreenToWorld2D(GetMousePosition(), g_state->camera);
+  return (g_state->hover_consumed = CheckCollisionPointRec(mouse_world, r));
+}
+
+INTERNAL bool
+left_click_consume(void)
+{
+  if (g_state->left_click_consumed) return false;
+  return (g_state->left_click_consumed = IsMouseButtonReleased(MOUSE_BUTTON_LEFT));
+}
+
+INTERNAL void
+draw_rectangle(Rectangle rec, Vector2 origin, float rotation, Color color)
+{
+    Vector2 topLeft = { 0 };
+    Vector2 topRight = { 0 };
+    Vector2 bottomLeft = { 0 };
+    Vector2 bottomRight = { 0 };
+
+    // Only calculate rotation if needed
+    if (rotation == 0.0f)
+    {
+        float x = rec.x - origin.x;
+        float y = rec.y - origin.y;
+        topLeft = (Vector2){ x, y };
+        topRight = (Vector2){ x + rec.width, y };
+        bottomLeft = (Vector2){ x, y + rec.height };
+        bottomRight = (Vector2){ x + rec.width, y + rec.height };
+    }
+    else
+    {
+        float sinRotation = sinf(rotation*DEG2RAD);
+        float cosRotation = cosf(rotation*DEG2RAD);
+        float x = rec.x;
+        float y = rec.y;
+        float dx = -origin.x;
+        float dy = -origin.y;
+
+        topLeft.x = x + dx*cosRotation - dy*sinRotation;
+        topLeft.y = y + dx*sinRotation + dy*cosRotation;
+
+        topRight.x = x + (dx + rec.width)*cosRotation - dy*sinRotation;
+        topRight.y = y + (dx + rec.width)*sinRotation + dy*cosRotation;
+
+        bottomLeft.x = x + dx*cosRotation - (dy + rec.height)*sinRotation;
+        bottomLeft.y = y + dx*sinRotation + (dy + rec.height)*cosRotation;
+
+        bottomRight.x = x + (dx + rec.width)*cosRotation - (dy + rec.height)*sinRotation;
+        bottomRight.y = y + (dx + rec.width)*sinRotation + (dy + rec.height)*cosRotation;
+    }
+
+#if defined(SUPPORT_QUADS_DRAW_MODE)
+    rlSetTexture(texShapes.id);
+
+    rlBegin(RL_QUADS);
+
+        rlNormal3f(0.0f, 0.0f, 1.0f);
+        rlColor4ub(color.r, color.g, color.b, color.a);
+
+        rlTexCoord2f(texShapesRec.x/texShapes.width, texShapesRec.y/texShapes.height);
+        rlVertex3f(topLeft.x, topLeft.y, g_state->z_stack->z);
+
+        rlTexCoord2f(texShapesRec.x/texShapes.width, (texShapesRec.y + texShapesRec.height)/texShapes.height);
+        rlVertex3f(bottomLeft.x, bottomLeft.y, g_state->z_stack->z);
+
+        rlTexCoord2f((texShapesRec.x + texShapesRec.width)/texShapes.width, (texShapesRec.y + texShapesRec.height)/texShapes.height);
+        rlVertex3f(bottomRight.x, bottomRight.y, g_state->z_stack->z);
+
+        rlTexCoord2f((texShapesRec.x + texShapesRec.width)/texShapes.width, texShapesRec.y/texShapes.height);
+        rlVertex3f(topRight.x, topRight.y, g_state->z_stack->z);
+
+    rlEnd();
+
+    rlSetTexture(0);
+#else
+    rlBegin(RL_TRIANGLES);
+
+        rlColor4ub(color.r, color.g, color.b, color.a);
+
+        rlVertex3f(topLeft.x, topLeft.y        , g_state->z_stack->z);
+        rlVertex3f(bottomLeft.x, bottomLeft.y  , g_state->z_stack->z);
+        rlVertex3f(topRight.x, topRight.y      , g_state->z_stack->z);
+
+        rlVertex3f(topRight.x, topRight.y      , g_state->z_stack->z);
+        rlVertex3f(bottomLeft.x, bottomLeft.y  , g_state->z_stack->z);
+        rlVertex3f(bottomRight.x, bottomRight.y, g_state->z_stack->z);
+
+    rlEnd();
+#endif
+}
+
+INTERNAL void
+draw_texture(Texture2D texture, Vector2 position, float rotation, float scale, Color tint)
+{
+    Rectangle source = { 0.0f, 0.0f, (float)texture.width, (float)texture.height };
+    Rectangle dest = { position.x, position.y, (float)texture.width*scale, (float)texture.height*scale };
+    Vector2 origin = { 0.0f, 0.0f };
+
+    // Check if texture is valid
+    if (texture.id > 0)
+    {
+        float width = (float)texture.width;
+        float height = (float)texture.height;
+
+        bool flipX = false;
+
+        if (source.width < 0) { flipX = true; source.width *= -1; }
+        if (source.height < 0) source.y -= source.height;
+
+        Vector2 topLeft = { 0 };
+        Vector2 topRight = { 0 };
+        Vector2 bottomLeft = { 0 };
+        Vector2 bottomRight = { 0 };
+
+        // Only calculate rotation if needed
+        if (rotation == 0.0f)
+        {
+            float x = dest.x - origin.x;
+            float y = dest.y - origin.y;
+            topLeft = (Vector2){ x, y };
+            topRight = (Vector2){ x + dest.width, y };
+            bottomLeft = (Vector2){ x, y + dest.height };
+            bottomRight = (Vector2){ x + dest.width, y + dest.height };
+        }
+        else
+        {
+            float sinRotation = sinf(rotation*DEG2RAD);
+            float cosRotation = cosf(rotation*DEG2RAD);
+            float x = dest.x;
+            float y = dest.y;
+            float dx = -origin.x;
+            float dy = -origin.y;
+
+            topLeft.x = x + dx*cosRotation - dy*sinRotation;
+            topLeft.y = y + dx*sinRotation + dy*cosRotation;
+
+            topRight.x = x + (dx + dest.width)*cosRotation - dy*sinRotation;
+            topRight.y = y + (dx + dest.width)*sinRotation + dy*cosRotation;
+
+            bottomLeft.x = x + dx*cosRotation - (dy + dest.height)*sinRotation;
+            bottomLeft.y = y + dx*sinRotation + (dy + dest.height)*cosRotation;
+
+            bottomRight.x = x + (dx + dest.width)*cosRotation - (dy + dest.height)*sinRotation;
+            bottomRight.y = y + (dx + dest.width)*sinRotation + (dy + dest.height)*cosRotation;
+        }
+
+        rlSetTexture(texture.id);
+        rlBegin(RL_QUADS);
+
+            rlColor4ub(tint.r, tint.g, tint.b, tint.a);
+            rlNormal3f(0.0f, 0.0f, 1.0f);                          // Normal vector pointing towards viewer
+
+            // Top-left corner for texture and quad
+            if (flipX) rlTexCoord2f((source.x + source.width)/width, source.y/height);
+            else rlTexCoord2f(source.x/width, source.y/height);
+            rlVertex3f(topLeft.x, topLeft.y, g_state->z_stack->z);
+
+            // Bottom-left corner for texture and quad
+            if (flipX) rlTexCoord2f((source.x + source.width)/width, (source.y + source.height)/height);
+            else rlTexCoord2f(source.x/width, (source.y + source.height)/height);
+            rlVertex3f(bottomLeft.x, bottomLeft.y, g_state->z_stack->z);
+
+            // Bottom-right corner for texture and quad
+            if (flipX) rlTexCoord2f(source.x/width, (source.y + source.height)/height);
+            else rlTexCoord2f((source.x + source.width)/width, (source.y + source.height)/height);
+            rlVertex3f(bottomRight.x, bottomRight.y, g_state->z_stack->z);
+
+            // Top-right corner for texture and quad
+            if (flipX) rlTexCoord2f(source.x/width, source.y/height);
+            else rlTexCoord2f((source.x + source.width)/width, source.y/height);
+            rlVertex3f(topRight.x, topRight.y, g_state->z_stack->z);
+
+        rlEnd();
+        rlSetTexture(0);
+
+        // NOTE: Vertex position can be transformed using matrices
+        // but the process is way more costly than just calculating
+        // the vertex positions manually, like done above.
+        // I leave here the old implementation for educational purposes,
+        // just in case someone wants to do some performance test
+        /*
+        rlSetTexture(texture.id);
+        rlPushMatrix();
+            rlTranslatef(dest.x, dest.y, 0.0f);
+            if (rotation != 0.0f) rlRotatef(rotation, 0.0f, 0.0f, 1.0f);
+            rlTranslatef(-origin.x, -origin.y, 0.0f);
+
+            rlBegin(RL_QUADS);
+                rlColor4ub(tint.r, tint.g, tint.b, tint.a);
+                rlNormal3f(0.0f, 0.0f, 1.0f);                          // Normal vector pointing towards viewer
+
+                // Bottom-left corner for texture and quad
+                if (flipX) rlTexCoord2f((source.x + source.width)/width, source.y/height);
+                else rlTexCoord2f(source.x/width, source.y/height);
+                rlVertex2f(0.0f, 0.0f);
+
+                // Bottom-right corner for texture and quad
+                if (flipX) rlTexCoord2f((source.x + source.width)/width, (source.y + source.height)/height);
+                else rlTexCoord2f(source.x/width, (source.y + source.height)/height);
+                rlVertex2f(0.0f, dest.height);
+
+                // Top-right corner for texture and quad
+                if (flipX) rlTexCoord2f(source.x/width, (source.y + source.height)/height);
+                else rlTexCoord2f((source.x + source.width)/width, (source.y + source.height)/height);
+                rlVertex2f(dest.width, dest.height);
+
+                // Top-left corner for texture and quad
+                if (flipX) rlTexCoord2f(source.x/width, source.y/height);
+                else rlTexCoord2f((source.x + source.width)/width, source.y/height);
+                rlVertex2f(dest.width, 0.0f);
+            rlEnd();
+        rlPopMatrix();
+        rlSetTexture(0);
+        */
+    }
+}
+
+
 
 INTERNAL Vector2
 world_to_tile_pos(Vector2 world)
@@ -220,6 +445,14 @@ get_pretty_name_from_entity_type(ENTITY_TYPE type)
   }
 }
 
+INTERNAL void
+push_z(s32 z)
+{
+  S32Node *n = MEM_ARENA_PUSH_STRUCT(g_state->frame_arena, S32Node);
+  n->z = z;
+  SLL_STACK_PUSH(g_state->z_stack, n);
+}
+
 // TODO: ui_render() { push_z_layer(UI_Z_LAYER); pop_z_layer() }
 // so can have it at top
 // ui_render(); ... world_render()
@@ -237,6 +470,8 @@ code_update(State *state)
   f32 dt = GetFrameTime();
   u32 rw = GetRenderWidth();
   u32 rh = GetRenderHeight();
+
+  push_z(0);
 
   if (!state->is_initialised)
   {
@@ -321,7 +556,7 @@ code_update(State *state)
   state->hitbox_stack = NULL;
 
   // :update entity destroy
-  if (e_hovering != NULL && IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+  if (e_hovering != NULL && left_click_consume())
   {
     e_hovering->health -= 1;
     if (e_hovering->health <= 0)
@@ -339,6 +574,7 @@ code_update(State *state)
   }
 
   BeginDrawing();
+  rlEnableDepthTest();
   ClearBackground(RAYWHITE);
   BeginMode2D(state->camera);
 
@@ -432,7 +668,7 @@ code_update(State *state)
         f32 t_rotation = 0.f;
         // f32 t_rotation = 360 * f32_sin_out(GetTime());
 
-        bool box_hover = CheckCollisionPointRec(mouse_world, box);
+        bool box_hover = hover_consume(box);
         if (box_hover)
         {
           t_scale += (t_scale * 0.1f);
@@ -502,7 +738,7 @@ code_update(State *state)
       f32 t_rotation = 0.f;
       // f32 t_rotation = 360 * f32_sin_out(GetTime());
 
-      bool box_hover = CheckCollisionPointRec(mouse_world, box);
+      bool box_hover = hover_consume(box);
       if (box_hover)
       {
         t_scale += (t_scale * 0.1f);
@@ -539,7 +775,7 @@ code_update(State *state)
         Vector2 text_pos = {tooltip.x + tooltip.width * 0.5f - text_size.x * 0.5f, tooltip.y};
         DrawTextEx(font, text, text_pos, font_size, 1.f, WHITE);
 
-        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) state->active_building_type = type;
+        if (left_click_consume()) state->active_building_type = type;
       }
     }
   }
@@ -555,7 +791,7 @@ code_update(State *state)
     Vector2 pos = round_world_to_tile(mouse_world);
     DrawTextureEx(t, pos, 0.f, entity_scale, WHITE);
     DrawRectangleLines(pos.x, pos.y, t.width, t.height, MAGENTA);
-    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) 
+    if (left_click_consume()) 
     {
       Entity *e = entity_create_building_furnace();
       e->pos = pos;
@@ -565,6 +801,9 @@ code_update(State *state)
 
 
   g_dbg_at_y = 0.f;
+  state->hover_consumed = false;
+  state->left_click_consumed = false;
+
   EndMode2D();
   EndDrawing();
   }
