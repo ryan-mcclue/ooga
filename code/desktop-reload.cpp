@@ -607,7 +607,7 @@ code_update(State *state)
     Color tint = BLACK;
     if (e_texture.id == state->assets.default_texture.id) tint = WHITE;
 
-    draw_texture(e_texture, e_world_pos, 0, entity_scale, tint);
+    draw_texture(e_texture, e_world_pos, entity_scale, tint);
 
     Vector2 texture_size = V2(e_texture.width, e_texture.height) * entity_scale;
     Rectangle e_hitbox = {e_world_pos.x, e_world_pos.y, texture_size.x, texture_size.y};
@@ -788,7 +788,7 @@ code_update(State *state)
     // TODO: get_aligned_vec_from_rect(rect, ALIGN_CENTRE);
 
     Vector2 pos = round_world_to_tile(mouse_world);
-    draw_texture(t, pos, 0.f, entity_scale, WHITE);
+    draw_texture(t, pos, entity_scale, WHITE);
     //DrawRectangleLines(pos.x, pos.y, t.width, t.height, MAGENTA);
     if (left_click_consume()) 
     {
