@@ -57,7 +57,7 @@ left_click_consume(void)
 }
 
 INTERNAL void
-draw_rectangle(Rectangle rec, Vector2 origin, float rotation, Color color)
+draw_rect(Rectangle rec, Color color, Vector2 origin = {0, 0}, float rotation = 0.f)
 {
     Vector2 topLeft = { 0 };
     Vector2 topRight = { 0 };
@@ -137,7 +137,7 @@ draw_rectangle(Rectangle rec, Vector2 origin, float rotation, Color color)
 }
 
 INTERNAL void
-draw_texture(Texture2D texture, Vector2 position, float rotation, float scale, Color tint)
+draw_texture(Texture2D texture, Vector2 position, float scale, Color tint, float rotation = 0.f)
 {
     Rectangle source = { 0.0f, 0.0f, (float)texture.width, (float)texture.height };
     Rectangle dest = { position.x, position.y, (float)texture.width*scale, (float)texture.height*scale };
@@ -588,11 +588,8 @@ code_update(State *state)
     Rectangle tile_rec = {(player_tile.x - 8 + x) * TILE_WIDTH, 
                           (player_tile.y - 8 + y) * TILE_HEIGHT, 
                           TILE_WIDTH, TILE_HEIGHT};
-    DrawRectangleRec(tile_rec, c);
-    //if (CheckCollisionPointRec(mouse_world, tile_rec))
+    draw_rect(tile_rec, c);
   }
-
-  //DrawTextureEx(assets_get_texture(str8_lit("assets/rock.png")), {state->camera.target.x, state->camera.target.y + 10 * f32_sin_in(GetTime())}, 0, 1.f, WHITE);
 
   // NOTE(Ryan): Rendering at 1920; Sprites done on 240
   // :render entities
@@ -609,7 +606,8 @@ code_update(State *state)
     }
     Color tint = BLACK;
     if (e_texture.id == state->assets.default_texture.id) tint = WHITE;
-    DrawTextureEx(e_texture, e_world_pos, 0, entity_scale, tint);
+
+    draw_texture(e_texture, e_world_pos, 0, entity_scale, tint);
 
     Vector2 texture_size = V2(e_texture.width, e_texture.height) * entity_scale;
     Rectangle e_hitbox = {e_world_pos.x, e_world_pos.y, texture_size.x, texture_size.y};
@@ -649,11 +647,11 @@ code_update(State *state)
     f32 y = rh - h;
     Vector2 world_xy = GetScreenToWorld2D({x, y}, state->camera);
     Rectangle region = {world_xy.x, world_xy.y, w, h};
-    //DrawRectangleRec(region, WHITE);
+    //draw_rect(region, WHITE);
     for (u32 i = 0; i < ARRAY_COUNT(state->inventory_items); i += 1)
     {
       Rectangle box = {region.x + (box_w + box_m) * i, region.y, box_w, h};
-      DrawRectangleRec(box, {0, 0, 0, 125});
+      draw_rect(box, {0, 0, 0, 125});
 
       ItemData *item = &state->inventory_items[i];
       ENTITY_TYPE type = (i + ENTITY_TYPE_ITEM_FIRST);
@@ -693,7 +691,7 @@ code_update(State *state)
           Rectangle tooltip = {t_centre.x - tooltip_w*0.5f, 
                                t_centre.y, tooltip_w, tooltip_h};
           // draw tooltip
-          DrawRectangleRec(tooltip, {0, 0, 255, 100});
+          draw_rect(tooltip, {0, 0, 255, 100});
 
           f32 font_size = 48.f;
           String8 text_fmt = str8_fmt(state->frame_arena, "%s (%d)", 
@@ -723,7 +721,8 @@ code_update(State *state)
     for (u32 i = 0; i < ARRAY_COUNT(state->buildings); i += 1)
     {
       Rectangle box = {region.x + (box_w + box_m) * i, region.y, box_w, h};
-      DrawRectangleRec(box, {0, 0, 0, 125});
+
+      draw_rect(box, {0, 0, 0, 125});
 
       ItemData *item = &state->inventory_items[i];
       ENTITY_TYPE type = (i + ENTITY_TYPE_BUILDING_FIRST);
@@ -764,7 +763,7 @@ code_update(State *state)
         f32 tooltip_h = h * 0.75f;
         Rectangle tooltip = {t_centre.x - tooltip_w * 0.5f,
                              t_centre.y, tooltip_w, tooltip_h};
-        DrawRectangleRec(tooltip, {0, 0, 255, 100});
+        draw_rect(tooltip, {0, 0, 255, 100});
 
         f32 font_size = 48.f;
         String8 text_fmt = str8_fmt(state->frame_arena, "%s",
@@ -789,8 +788,8 @@ code_update(State *state)
     // TODO: get_aligned_vec_from_rect(rect, ALIGN_CENTRE);
 
     Vector2 pos = round_world_to_tile(mouse_world);
-    DrawTextureEx(t, pos, 0.f, entity_scale, WHITE);
-    DrawRectangleLines(pos.x, pos.y, t.width, t.height, MAGENTA);
+    draw_texture(t, pos, 0.f, entity_scale, WHITE);
+    //DrawRectangleLines(pos.x, pos.y, t.width, t.height, MAGENTA);
     if (left_click_consume()) 
     {
       Entity *e = entity_create_building_furnace();
