@@ -1,0 +1,15 @@
+{
+  "C_Cpp.errorSquiggles": "disabled",
+  // Launch Configs Extension
+  //  {
+  //      "key": "ctrl+shift+t",
+  //      "command": "launches.LaunchTestsDebugger"
+  //  }
+  "launches": {
+      "LaunchTestsDebugger": "Launch Tests"
+  },
+  "files.associations": {
+    "*.m": "cpp",
+    "*.tcc": "cpp"
+  }
+}
