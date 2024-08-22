@@ -130,14 +130,11 @@ INTROSPECT() struct State
   MemArena *frame_arena;
   u64 frame_counter;
 
-  bool hover_consumed;
-  bool left_click_consumed;
-
-  S32Node *z_stack;
-
   Entity entities[1024];
   // TODO: use generation handles
   Entity *player;
+
+  bool left_click_consumed;
 
   UI_STATE ui_state;
   f32 ui_inventory_alpha_t;
