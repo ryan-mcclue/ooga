@@ -377,7 +377,7 @@ code_update(State *state)
     {
       e_world_pos.y += (entity_scale * 5 * f32_sin_in_out(GetTime()));
     }
-    Color tint = BLACK;
+    Color tint = BLUE;
     if (e_texture.id == state->assets.default_texture.id) tint = WHITE;
 
     DrawTextureEx(e_texture, e_world_pos, 0.f, entity_scale, tint);
