@@ -144,10 +144,6 @@ assets_get_texture(String8 key)
   {
     v = g_state->assets.default_texture;
   }
-  else
-  {
-    SetTextureFilter(v, TEXTURE_FILTER_BILINEAR);
-  }
 
   TextureNode *n = MEM_ARENA_PUSH_STRUCT(g_state->assets.arena, TextureNode);
   n->key = key;

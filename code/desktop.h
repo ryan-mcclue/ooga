@@ -52,16 +52,34 @@ enum
 #define ENTITY_TYPE_BUILDING_FIRST ENTITY_TYPE_BUILDING_FURNACE
   ENTITY_TYPE_BUILDING_FURNACE,
   ENTITY_TYPE_BUILDING_WORKBENCH,
+  ENTITY_TYPE_BUILDING_RESEARCH_STATION,
 #define ENTITY_TYPE_BUILDING_LAST ENTITY_TYPE_BUILDING_WORKBENCH
 #define ENTITY_TYPE_BUILDING_COUNT (ENTITY_TYPE_BUILDING_LAST - ENTITY_TYPE_BUILDING_FIRST + 1)
 
   ENTITY_TYPE_COUNT
 };
 
+typedef struct ItemAmount ItemAmount;
+struct ItemAmount
+{
+  ENTITY_TYPE type;
+  u32 amount;
+};
+
+typedef struct InventoryItem InventoryItem;
+struct InventoryItem
+{
+  u32 amount;
+};
+
+#define MAX_RECIPE_INGREDIENTS 8
 typedef struct ItemData ItemData;
 struct ItemData
 {
-  s32 amount;
+  ItemAmount crafting_recipe[MAX_RECIPE_INGREDIENTS];
+  u32 crafting_recipe_count;
+  f32 craft_length; // time to craft
+  ENTITY_TYPE workbench_for; // where this can be crafted
 };
 
 typedef struct BuildingData BuildingData;
@@ -80,6 +98,11 @@ struct Entity
 
   // TODO: make mask
   bool is_item;
+  bool is_workbench;
+  bool is_destroyable;
+  ENTITY_TYPE crafting_entity; // can only queue same entity type
+  u32 queued_crafting_amount; // how many iterations of recipe creating
+  f32 crafting_timer_start; // 0 means inactive
 
   //ItemID item;
   // TODO:
@@ -143,7 +166,9 @@ INTROSPECT() struct State
   MemArena *hitbox_arena;
   Hitbox *hitbox_stack;
 
-  ItemData inventory_items[ENTITY_TYPE_ITEM_COUNT];
+  InventoryItem inventory_items[ENTITY_TYPE_ITEM_COUNT];
+
+  ItemData items[ENTITY_TYPE_ITEM_COUNT];
   BuildingData buildings[ENTITY_TYPE_BUILDING_COUNT];
 
   Camera2D camera;

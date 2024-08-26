@@ -254,6 +254,12 @@ code_update(State *state)
     state->player = entity_create_player();
     state->player->pos = world_to_tile_pos({rw/2, rh/2});
 
+    // :init item data
+    ItemData *item_data = &state->item_data[ENTITY_TYPE_ITEM_FIRST - ENTITY_TYPE_ITEM_ROCK];
+    item_data->crafting_recipe = { {ENTITY_TYPE_ITEM_ROCK, 5}};
+    item_data->crafting_recipe_count = 1;
+
+    // IMPORTANT: this sets up the world with things for us (probably set globals as well)
     #if DEBUG_BUILD
     u32 rand_seed = 1337;
     for (u32 i = 0; i < 10; i += 1)
@@ -294,6 +300,7 @@ code_update(State *state)
   // TODO: add player sprite w/h to calculation
   state->camera.offset = V2(rw/2, rh/2) * state->camera.zoom;
 
+  // TODO: This is effectively entity update
   // :process entity hitboxes
   f32 closest_hitbox_lengthsq = f32_inf();
   Vector2 mouse_world = GetScreenToWorld2D(GetMousePosition(), state->camera);
@@ -322,12 +329,21 @@ code_update(State *state)
       inc_inventory_item_count(e->type, 1);
       entity_free(e);
     }
+
+    if (e->is_workbench && state->active_crafting_item)
+    {
+      if (e->crafting_timer_start == 0)
+      {
+        e->crafting_timer_start = GetTime();
+      }
+
+    }
   }
   mem_arena_clear(state->hitbox_arena);
   state->hitbox_stack = NULL;
 
   // :update entity destroy
-  if (e_hovering != NULL && left_click_consume())
+  if (e_hovering != NULL && e_hovering->is_destroyable && left_click_consume())
   {
     e_hovering->health -= 1;
     if (e_hovering->health <= 0)
@@ -342,6 +358,12 @@ code_update(State *state)
       }
       entity_free(e_hovering);
     }
+  }
+
+  if (e_hovering != NULL && e_hovering->is_workbench && left_click_consume())
+  {
+    state->ui_state = UI_STATE_WORKBENCH;
+    state->open_workbench = e_hovering;
   }
 
   BeginDrawing();
@@ -379,6 +401,13 @@ code_update(State *state)
     if (e_texture.id == state->assets.default_texture.id) tint = WHITE;
 
     DrawTextureEx(e_texture, e_world_pos, 0.f, entity_scale, tint);
+    
+    // IMPORTANT: render and update just switches on entity types
+    if (e->is_workbench && e->queued_crafting_amount > 0)
+    {
+      // draw animation (two circles; inner radius expands)
+      f32 a = f32_norm(e->crafting_timer_start, GetTime(), e->crafting_timer_start+length);
+    }
 
     Vector2 texture_size = V2(e_texture.width, e_texture.height) * entity_scale;
     Rectangle e_hitbox = {e_world_pos.x, e_world_pos.y, texture_size.x, texture_size.y};
@@ -424,7 +453,7 @@ code_update(State *state)
       Rectangle box = {region.x + (box_w + box_m) * i, region.y, box_w, h};
       DrawRectangleRec(box, {0, 0, 0, 125});
 
-      ItemData *item = &state->inventory_items[i];
+      InventoryItem *item = &state->inventory_items[i];
       ENTITY_TYPE type = (i + ENTITY_TYPE_ITEM_FIRST);
       if (item->amount > 0)
       {
@@ -495,7 +524,7 @@ code_update(State *state)
 
       DrawRectangleRec(box, {0, 0, 0, 125});
 
-      ItemData *item = &state->inventory_items[i];
+      InventoryItem *item = &state->inventory_items[i];
       ENTITY_TYPE type = (i + ENTITY_TYPE_BUILDING_FIRST);
       Texture t = get_texture_from_entity_type(type);
       f32 t_scale = 0.f;
@@ -568,6 +597,22 @@ code_update(State *state)
       state->active_building_type = ENTITY_TYPE_NIL;
     }
   }
+
+  if (state->ui_state == UI_STATE_WORKBENCH)
+  {
+    // left pane display items
+    // right pane displays selected recipe for that item and craft button
+    // grey out button if cannot be crafted
+    // IMPORTANT: greying out and red on not possible to communicate to user all about ui
+    // hitting button just removes items from inventory
+  }
+  if (state->ui_state == UI_STATE_RESEARCH_STATION)
+  {
+    // left pane display research items
+    // right pane displays selected research progress bar
+    // hitting button spends 'research' item
+  }
+
 
   Vector2 fps_pos = GetScreenToWorld2D({20, 20}, state->camera);
   DrawFPS(fps_pos.x, fps_pos.y);
