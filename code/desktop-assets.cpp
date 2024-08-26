@@ -112,6 +112,8 @@ assets_get_font(String8 key)
   // TODO(Ryan): Add parameters to asset keys
   // NOTE: will get default font if failed, so always valid
   Font v = LoadFontEx(cpath, 64, NULL, 0);
+  GenTextureMipmaps(&v.texture);
+  SetTextureFilter(v.texture, TEXTURE_FILTER_BILINEAR);
 
   FontNode *n = MEM_ARENA_PUSH_STRUCT(g_state->assets.arena, FontNode);
   n->key = key;
@@ -142,8 +144,10 @@ assets_get_texture(String8 key)
   {
     v = g_state->assets.default_texture;
   }
-
-  //SetTextureFilter(v, TEXTURE_FILTER_BILINEAR);
+  else
+  {
+    SetTextureFilter(v, TEXTURE_FILTER_BILINEAR);
+  }
 
   TextureNode *n = MEM_ARENA_PUSH_STRUCT(g_state->assets.arena, TextureNode);
   n->key = key;

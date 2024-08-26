@@ -5,8 +5,6 @@
 
 #include "desktop.h"
 
-#include <rlgl.h>
-
 State *g_state = NULL;
 
 #include "desktop-assets.cpp"
@@ -347,9 +345,9 @@ code_update(State *state)
   }
 
   BeginDrawing();
-  rlEnableDepthTest();
   ClearBackground(RAYWHITE);
   BeginMode2D(state->camera);
+
 
   // :render map
   Vector2 player_tile = state->camera.target / TILE_SIZE;
@@ -377,7 +375,7 @@ code_update(State *state)
     {
       e_world_pos.y += (entity_scale * 5 * f32_sin_in_out(GetTime()));
     }
-    Color tint = BLUE;
+    Color tint = BLACK;
     if (e_texture.id == state->assets.default_texture.id) tint = WHITE;
 
     DrawTextureEx(e_texture, e_world_pos, 0.f, entity_scale, tint);
@@ -570,6 +568,9 @@ code_update(State *state)
       state->active_building_type = ENTITY_TYPE_NIL;
     }
   }
+
+  Vector2 fps_pos = GetScreenToWorld2D({20, 20}, state->camera);
+  DrawFPS(fps_pos.x, fps_pos.y);
 
   g_dbg_at_y = 0.f;
   state->left_click_consumed = false;
